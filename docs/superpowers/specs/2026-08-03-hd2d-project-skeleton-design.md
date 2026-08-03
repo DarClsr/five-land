@@ -20,4 +20,4 @@ The placeholder exists only to verify composition and approximate character scal
 
 ## Validation
 
-Use the installed Godot 4.7.1 console executable to import and run the project. Acceptance requires a clean headless startup, no parser or missing-resource errors, and one visual capture showing the ground, landmark, placeholder character, and HD-2D camera composition. Godot MCP is not available in the current session, so CLI validation is authoritative for this step; MCP integration can be added when the tool becomes available.
+Use Godot AI MCP to create, run, inspect, and capture the project, then use the installed Godot 4.7.1 console executable for a clean headless startup check. Acceptance requires no parser or missing-resource errors and one visual capture showing the ground, landmark, placeholder character, and HD-2D camera composition.

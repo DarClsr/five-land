@@ -1,0 +1,105 @@
+[gd_scene format=3 uid="uid://cfdk68jvrw3qm"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kb8qc"]
+albedo_color = Color(0.3372549, 0.3019608, 0.24313726, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="BoxMesh_hugdw"]
+size = Vector3(14, 0.35, 10)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wcqrs"]
+albedo_color = Color(0.8235294, 0.8117647, 0.76862746, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="BoxMesh_kb8qc"]
+size = Vector3(1.4, 3.2, 0.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pl32t"]
+albedo_color = Color(0.5529412, 0.53333336, 0.49019608, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_fq6eb"]
+size = Vector3(0.7, 2.4, 0.6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xhqfv"]
+albedo_color = Color(0.6156863, 0.5921569, 0.54509807, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_4nmw7"]
+size = Vector3(0.7, 3, 0.6)
+
+[sub_resource type="Gradient" id="Gradient_w26gr"]
+offsets = PackedFloat32Array(0, 0.28, 0.72, 1)
+colors = PackedColorArray(0.7882353, 0.72156864, 0.6, 1, 0.20392157, 0.23137255, 0.21960784, 1, 0.16470589, 0.1882353, 0.18039216, 1, 0.09019608, 0.1254902, 0.11764706, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_0myta"]
+gradient = SubResource("Gradient_w26gr")
+width = 16
+height = 24
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_2vbie"]
+sky_top_color = Color(0.06666667, 0.09019608, 0.08235294, 1)
+sky_horizon_color = Color(0.32156864, 0.3764706, 0.34117648, 1)
+ground_bottom_color = Color(0.08627451, 0.09411765, 0.078431375, 1)
+ground_horizon_color = Color(0.7, 0.7, 0.72, 1)
+
+[sub_resource type="Sky" id="Sky_1fcl3"]
+sky_material = SubResource("ProceduralSkyMaterial_2vbie")
+
+[sub_resource type="Environment" id="Environment_m0kt1"]
+background_mode = 1
+background_color = Color(0.09411765, 0.1254902, 0.11764706, 1)
+sky = SubResource("Sky_1fcl3")
+ambient_light_source = 3
+ambient_light_color = Color(0.38431373, 0.44313726, 0.40784314, 1)
+ambient_light_energy = 0.55
+fog_enabled = true
+fog_light_color = Color(0.46666667, 0.5176471, 0.48235294, 1)
+fog_density = 0.018
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.03
+
+[node name="Main" type="Node3D" unique_id=1808272799]
+
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=1811753901]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.175, 0)
+material_override = SubResource("StandardMaterial3D_kb8qc")
+mesh = SubResource("BoxMesh_hugdw")
+
+[node name="Landmark" type="MeshInstance3D" parent="." unique_id=1341789785]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.3, 1.6, -2)
+material_override = SubResource("StandardMaterial3D_wcqrs")
+mesh = SubResource("BoxMesh_kb8qc")
+
+[node name="FrameStoneLeft" type="MeshInstance3D" parent="." unique_id=1611921974]
+transform = Transform3D(0.98753536, 0.049417958, 0.14943814, -0.04997917, 0.99875027, 0, -0.14925139, -0.007468794, 0.9887711, -5, 1.2, 1.5)
+material_override = SubResource("StandardMaterial3D_pl32t")
+mesh = SubResource("BoxMesh_fq6eb")
+
+[node name="FrameStoneRight" type="MeshInstance3D" parent="." unique_id=1948162686]
+transform = Transform3D(0.9830567, -0.039343253, -0.17902958, 0.039989334, 0.9992001, 0, 0.17888638, -0.0071592736, 0.9838437, 4.5, 1.5, -1)
+material_override = SubResource("StandardMaterial3D_xhqfv")
+mesh = SubResource("BoxMesh_4nmw7")
+
+[node name="WuyangPlaceholder" type="Sprite3D" parent="." unique_id=1257420393]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.84, 1)
+pixel_size = 0.07
+billboard = 1
+texture_filter = 0
+texture = SubResource("GradientTexture2D_0myta")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=676626383]
+environment = SubResource("Environment_m0kt1")
+
+[node name="MoonKey" type="DirectionalLight3D" parent="." unique_id=794424594]
+transform = Transform3D(0.8253356, 0.44229966, -0.3509874, 0, 0.62161, 0.7833269, 0.5646425, -0.6465076, 0.51303685, 0, 0, 0)
+light_color = Color(0.8509804, 0.8901961, 0.8627451, 1)
+light_energy = 1.25
+shadow_enabled = true
+
+[node name="MainCamera" type="Camera3D" parent="." unique_id=668026384]
+transform = Transform3D(0.7648422, -0.32009894, 0.55906445, 0, 0.8678192, 0.4968801, -0.64421767, -0.3800349, 0.66374475, 11.5, 9.5, 13.5)
+current = true
+fov = 28.0
+near = 0.1
+far = 100.0
