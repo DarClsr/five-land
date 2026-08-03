@@ -10,3 +10,4 @@
 - [地图、生活习俗与场景特效风格](docs/world-map-and-art.md)
 - [主要角色、主线角色与支线角色](docs/characters-and-quests.md)
 - [墟门序章主线与支线任务表](docs/xumen-prologue-quests.md)
+- [技术参考、来源与借鉴边界](docs/technical-references.md)
