@@ -9,3 +9,4 @@
 - [世界观、背景、主要任务与剧情大纲](docs/world-and-story.md)
 - [地图、生活习俗与场景特效风格](docs/world-map-and-art.md)
 - [主要角色、主线角色与支线角色](docs/characters-and-quests.md)
+- [墟门序章主线与支线任务表](docs/xumen-prologue-quests.md)
