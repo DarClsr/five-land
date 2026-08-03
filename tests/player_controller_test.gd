@@ -24,6 +24,20 @@ func _init() -> void:
 	_expect(not player.try_start_dodge(Vector3.RIGHT), "blocks dodge during cooldown")
 	player.tick_timers(player.dodge_cooldown - player.dodge_duration)
 	_expect(player.try_start_dodge(Vector3.RIGHT), "allows dodge after cooldown")
+
+	var player_scene := load("res://scenes/actors/player.tscn") as PackedScene
+	_expect(player_scene != null, "loads reusable player scene")
+	if player_scene:
+		var player_instance := player_scene.instantiate()
+		_expect(player_instance is CharacterBody3D, "player scene uses CharacterBody3D")
+		_expect(player_instance.get_node_or_null("CollisionShape3D") != null, "player has collision")
+		_expect(player_instance.get_node_or_null("Visual") is Sprite3D, "player has HD-2D visual")
+		player_instance.free()
+
+	var level_scene := load("res://scenes/hd2d_test.tscn") as PackedScene
+	var level_instance := level_scene.instantiate()
+	_expect(level_instance.get_node_or_null("GroundBody/CollisionShape3D") != null, "level has ground collision")
+	level_instance.free()
 	player.free()
 
 	if failures == 0:

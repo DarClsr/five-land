@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/player_controller.gd" id="1_controller"]
+
+[sub_resource type="Gradient" id="Gradient_player"]
+offsets = PackedFloat32Array(0, 0.28, 0.72, 1)
+colors = PackedColorArray(0.7882353, 0.72156864, 0.6, 1, 0.20392157, 0.23137255, 0.21960784, 1, 0.16470589, 0.1882353, 0.18039216, 1, 0.09019608, 0.1254902, 0.11764706, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_player"]
+gradient = SubResource("Gradient_player")
+width = 16
+height = 24
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.35
+height = 1.8
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_controller")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="Visual" type="Sprite3D" parent="."]
+position = Vector3(0, 0.84, 0)
+pixel_size = 0.07
+billboard = 1
+texture_filter = 0
+texture = SubResource("GradientTexture2D_player")

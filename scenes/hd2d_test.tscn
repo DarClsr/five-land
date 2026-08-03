@@ -1,10 +1,15 @@
 [gd_scene format=3 uid="uid://cfdk68jvrw3qm"]
 
+[ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="1_player"]
+
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kb8qc"]
 albedo_color = Color(0.3372549, 0.3019608, 0.24313726, 1)
 roughness = 0.95
 
 [sub_resource type="BoxMesh" id="BoxMesh_hugdw"]
+size = Vector3(14, 0.35, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
 size = Vector3(14, 0.35, 10)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wcqrs"]
@@ -27,15 +32,6 @@ roughness = 0.9
 
 [sub_resource type="BoxMesh" id="BoxMesh_4nmw7"]
 size = Vector3(0.7, 3, 0.6)
-
-[sub_resource type="Gradient" id="Gradient_w26gr"]
-offsets = PackedFloat32Array(0, 0.28, 0.72, 1)
-colors = PackedColorArray(0.7882353, 0.72156864, 0.6, 1, 0.20392157, 0.23137255, 0.21960784, 1, 0.16470589, 0.1882353, 0.18039216, 1, 0.09019608, 0.1254902, 0.11764706, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_0myta"]
-gradient = SubResource("Gradient_w26gr")
-width = 16
-height = 24
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_2vbie"]
 sky_top_color = Color(0.06666667, 0.09019608, 0.08235294, 1)
@@ -66,6 +62,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.175, 0)
 material_override = SubResource("StandardMaterial3D_kb8qc")
 mesh = SubResource("BoxMesh_hugdw")
 
+[node name="GroundBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GroundBody"]
+position = Vector3(0, -0.175, 0)
+shape = SubResource("BoxShape3D_ground")
+
 [node name="Landmark" type="MeshInstance3D" parent="." unique_id=1341789785]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.3, 1.6, -2)
 material_override = SubResource("StandardMaterial3D_wcqrs")
@@ -81,12 +83,8 @@ transform = Transform3D(0.9830567, -0.039343253, -0.17902958, 0.039989334, 0.999
 material_override = SubResource("StandardMaterial3D_xhqfv")
 mesh = SubResource("BoxMesh_4nmw7")
 
-[node name="WuyangPlaceholder" type="Sprite3D" parent="." unique_id=1257420393]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.84, 1)
-pixel_size = 0.07
-billboard = 1
-texture_filter = 0
-texture = SubResource("GradientTexture2D_0myta")
+[node name="Player" parent="." instance=ExtResource("1_player")]
+position = Vector3(0, 0, 1)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=676626383]
 environment = SubResource("Environment_m0kt1")
