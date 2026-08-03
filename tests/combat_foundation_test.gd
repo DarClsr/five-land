@@ -2,6 +2,8 @@ extends SceneTree
 
 const AttackData = preload("res://resources/combat/attack_data.gd")
 const HealthComponent = preload("res://scripts/components/health_component.gd")
+const Hitbox3D = preload("res://scripts/components/hitbox_3d.gd")
+const Hurtbox3D = preload("res://scripts/components/hurtbox_3d.gd")
 
 var failures := 0
 
@@ -38,6 +40,25 @@ func _init() -> void:
 	_expect(died_count[0] == 1, "HealthComponent should emit died once")
 	_expect(health.take_damage(1) == 0, "HealthComponent should reject damage after death")
 	health.free()
+
+	var target_health := HealthComponent.new()
+	target_health.reset()
+	var hurtbox := Hurtbox3D.new()
+	hurtbox.health = target_health
+	var hitbox := Hitbox3D.new()
+	hitbox.damage = 25
+	hitbox.begin_swing()
+	_expect(hitbox.try_hit(hurtbox), "Hitbox3D should damage the first overlap")
+	_expect(not hitbox.try_hit(hurtbox), "Hitbox3D should reject a duplicate hit in one swing")
+	_expect(target_health.current_health == 75, "Hitbox3D should route damage to health")
+	hitbox.end_swing()
+	hitbox.begin_swing()
+	hurtbox.invulnerable = true
+	_expect(not hitbox.try_hit(hurtbox), "Hurtbox3D should reject damage while invulnerable")
+	_expect(target_health.current_health == 75, "Invulnerability should preserve health")
+	hitbox.free()
+	hurtbox.free()
+	target_health.free()
 
 	if failures == 0:
 		print("PASS: combat foundation")
