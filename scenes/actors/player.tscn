@@ -1,6 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/actors/player_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="2_health"]
+[ext_resource type="Script" path="res://scripts/components/hurtbox_3d.gd" id="3_hurtbox"]
+[ext_resource type="Script" path="res://scripts/actors/player_combat.gd" id="4_combat"]
+[ext_resource type="Script" path="res://scripts/components/hitbox_3d.gd" id="5_hitbox"]
+[ext_resource type="Script" path="res://resources/combat/attack_data.gd" id="6_attack"]
 
 [sub_resource type="Gradient" id="Gradient_player"]
 offsets = PackedFloat32Array(0, 0.28, 0.72, 1)
@@ -15,7 +20,46 @@ height = 24
 radius = 0.35
 height = 1.8
 
-[node name="Player" type="CharacterBody3D"]
+[sub_resource type="Resource" id="AttackData_player"]
+script = ExtResource("6_attack")
+damage = 25
+windup = 0.12
+active = 0.1
+recovery = 0.23
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurtbox"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hitbox"]
+size = Vector3(0.9, 1.2, 1.0)
+
+[sub_resource type="Animation" id="Animation_reset"]
+resource_name = "RESET"
+length = 0.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Visual:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {"times": PackedFloat32Array(0), "transitions": PackedFloat32Array(1), "update": 0, "values": [Vector3(1, 1, 1)]}
+
+[sub_resource type="Animation" id="Animation_attack"]
+resource_name = "attack"
+length = 0.45
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Visual:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {"times": PackedFloat32Array(0, 0.12, 0.22, 0.45), "transitions": PackedFloat32Array(1, 1, 1, 1), "update": 0, "values": [Vector3(1, 1, 1), Vector3(1.15, 1.15, 1.15), Vector3(1.05, 1.05, 1.05), Vector3(1, 1, 1)]}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_player"]
+_data = {&"RESET": SubResource("Animation_reset"), &"attack": SubResource("Animation_attack")}
+
+[node name="Player" type="CharacterBody3D" groups=["player"]]
 script = ExtResource("1_controller")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
@@ -28,3 +72,38 @@ pixel_size = 0.07
 billboard = 1
 texture_filter = 0
 texture = SubResource("GradientTexture2D_player")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+
+[node name="Hurtbox3D" type="Area3D" parent="." node_paths=PackedStringArray("health", "actor")]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_hurtbox")
+health = NodePath("../Health")
+actor = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox3D"]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_hurtbox")
+
+[node name="PlayerCombat" type="Node3D" parent="." node_paths=PackedStringArray("hitbox", "animation_player")]
+script = ExtResource("4_combat")
+attack_data = SubResource("AttackData_player")
+hitbox = NodePath("Hitbox3D")
+animation_player = NodePath("../AnimationPlayer")
+
+[node name="Hitbox3D" type="Area3D" parent="PlayerCombat" node_paths=PackedStringArray("source_actor")]
+position = Vector3(0, 0.8, -0.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("5_hitbox")
+source_actor = NodePath("../..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PlayerCombat/Hitbox3D"]
+shape = SubResource("BoxShape3D_hitbox")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {&"": SubResource("AnimationLibrary_player")}

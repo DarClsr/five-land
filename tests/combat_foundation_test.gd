@@ -4,6 +4,7 @@ const AttackData = preload("res://resources/combat/attack_data.gd")
 const HealthComponent = preload("res://scripts/components/health_component.gd")
 const Hitbox3D = preload("res://scripts/components/hitbox_3d.gd")
 const Hurtbox3D = preload("res://scripts/components/hurtbox_3d.gd")
+const PlayerCombat = preload("res://scripts/actors/player_combat.gd")
 
 var failures := 0
 
@@ -59,6 +60,20 @@ func _init() -> void:
 	hitbox.free()
 	hurtbox.free()
 	target_health.free()
+
+	var combat := PlayerCombat.new()
+	combat.attack_data = attack_data
+	combat.hitbox = Hitbox3D.new()
+	combat.add_child(combat.hitbox)
+	_expect(combat.start_attack(Vector3.LEFT), "PlayerCombat should start while idle")
+	_expect(combat.is_attacking(), "PlayerCombat should lock during attack")
+	combat.tick_attack(attack_data.windup)
+	_expect(combat.hitbox.monitoring, "PlayerCombat should activate hitbox after windup")
+	combat.tick_attack(attack_data.active)
+	_expect(not combat.hitbox.monitoring, "PlayerCombat should end hitbox after active time")
+	combat.tick_attack(attack_data.recovery)
+	_expect(not combat.is_attacking(), "PlayerCombat should unlock after recovery")
+	combat.free()
 
 	if failures == 0:
 		print("PASS: combat foundation")

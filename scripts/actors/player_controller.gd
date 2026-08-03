@@ -7,6 +7,9 @@ extends CharacterBody3D
 @export var dodge_cooldown := 0.45
 
 @onready var visual: Sprite3D = $Visual
+@onready var combat: PlayerCombat = $PlayerCombat
+@onready var health: HealthComponent = $Health
+@onready var hurtbox: Hurtbox3D = $Hurtbox3D
 
 var facing_direction := Vector3.FORWARD
 var dodge_direction := Vector3.ZERO
@@ -14,8 +17,23 @@ var dodge_time_remaining := 0.0
 var dodge_cooldown_remaining := 0.0
 
 
+func _ready() -> void:
+	health.died.connect(_on_died)
+
+
 func _physics_process(delta: float) -> void:
 	tick_timers(delta)
+	hurtbox.invulnerable = is_invulnerable()
+	if health.is_dead():
+		velocity = Vector3.ZERO
+		return
+	if not is_invulnerable() and Input.is_action_just_pressed("attack"):
+		combat.start_attack(facing_direction)
+	if combat.is_attacking():
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
+
 	var input_vector := Input.get_vector("move_left", "move_right", "move_down", "move_up")
 	var camera := get_viewport().get_camera_3d()
 	var move_direction := Vector3.ZERO
@@ -66,3 +84,14 @@ func tick_timers(delta: float) -> void:
 
 func is_invulnerable() -> bool:
 	return dodge_time_remaining > 0.0
+
+
+func _on_died() -> void:
+	set_physics_process(false)
+	combat.cancel_attack()
+	velocity = Vector3.ZERO
+	$CollisionShape3D.set_deferred(&"disabled", true)
+	hurtbox.set_deferred(&"monitorable", false)
+	visual.modulate = Color(0.35, 0.35, 0.35, 1.0)
+	await get_tree().create_timer(1.0).timeout
+	get_tree().reload_current_scene()
