@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cfdk68jvrw3qm"]
 
 [ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/actors/training_dummy.tscn" id="2_dummy"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kb8qc"]
 albedo_color = Color(0.3372549, 0.3019608, 0.24313726, 1)
@@ -85,6 +86,9 @@ mesh = SubResource("BoxMesh_4nmw7")
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 position = Vector3(0, 0, 1)
+
+[node name="TrainingDummy" parent="." instance=ExtResource("2_dummy")]
+position = Vector3(0, 0, -0.7)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=676626383]
 environment = SubResource("Environment_m0kt1")

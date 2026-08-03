@@ -10,6 +10,10 @@ var failures := 0
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	var attack_data := AttackData.new()
 	_expect(attack_data.damage == 25, "AttackData default damage should be 25")
 	_expect(is_equal_approx(attack_data.windup, 0.12), "AttackData default windup should be 0.12")
@@ -74,6 +78,30 @@ func _init() -> void:
 	combat.tick_attack(attack_data.recovery)
 	_expect(not combat.is_attacking(), "PlayerCombat should unlock after recovery")
 	combat.free()
+
+	var dummy_scene := load("res://scenes/actors/training_dummy.tscn") as PackedScene
+	_expect(dummy_scene != null, "Training dummy scene should load")
+	if dummy_scene:
+		var dummy := dummy_scene.instantiate()
+		root.add_child(dummy)
+		dummy.set_physics_process(false)
+		_expect(dummy.get_node_or_null("Health") is HealthComponent, "Training dummy should have health")
+		_expect(dummy.get_node_or_null("Hurtbox3D") is Hurtbox3D, "Training dummy should have a hurtbox")
+		var counter := dummy.get_node_or_null("CounterHitbox3D") as Hitbox3D
+		_expect(counter != null, "Training dummy should have a counter hitbox")
+		_expect(dummy.get_node_or_null("Visual") is Sprite3D, "Training dummy should have a visual")
+		var dummy_health := dummy.get_node("Health") as HealthComponent
+		dummy_health.take_damage(25)
+		dummy.tick_counter(0.5)
+		_expect(counter.monitoring, "Training dummy counter should activate after windup")
+		dummy.tick_counter(0.15)
+		_expect(not counter.monitoring, "Training dummy counter should end after active time")
+		dummy.queue_free()
+
+	var level_scene := load("res://scenes/hd2d_test.tscn") as PackedScene
+	var level := level_scene.instantiate()
+	_expect(level.get_node_or_null("TrainingDummy") != null, "Level should instance the training dummy")
+	level.free()
 
 	if failures == 0:
 		print("PASS: combat foundation")

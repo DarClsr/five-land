@@ -1,0 +1,59 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/training_dummy.gd" id="1_dummy"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="2_health"]
+[ext_resource type="Script" path="res://scripts/components/hurtbox_3d.gd" id="3_hurtbox"]
+[ext_resource type="Script" path="res://scripts/components/hitbox_3d.gd" id="4_hitbox"]
+
+[sub_resource type="Gradient" id="Gradient_dummy"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.58, 0.22, 0.16, 1, 0.22, 0.13, 0.12, 1, 0.08, 0.07, 0.07, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_dummy"]
+gradient = SubResource("Gradient_dummy")
+width = 16
+height = 24
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_dummy"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_counter"]
+size = Vector3(1.0, 1.2, 1.3)
+
+[node name="TrainingDummy" type="Node3D"]
+script = ExtResource("1_dummy")
+
+[node name="Visual" type="Sprite3D" parent="."]
+position = Vector3(0, 0.84, 0)
+pixel_size = 0.07
+billboard = 1
+texture_filter = 0
+texture = SubResource("GradientTexture2D_dummy")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+
+[node name="Hurtbox3D" type="Area3D" parent="." node_paths=PackedStringArray("health", "actor")]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_hurtbox")
+health = NodePath("../Health")
+actor = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox3D"]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_dummy")
+
+[node name="CounterHitbox3D" type="Area3D" parent="." node_paths=PackedStringArray("source_actor")]
+position = Vector3(0, 0.8, 0.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("4_hitbox")
+damage = 25
+source_actor = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CounterHitbox3D"]
+shape = SubResource("BoxShape3D_counter")
