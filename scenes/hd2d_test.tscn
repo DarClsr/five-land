@@ -1,6 +1,8 @@
-[gd_scene format=3 uid="uid://cfdk68jvrw3qm"]
+[gd_scene load_steps=16 format=3 uid="uid://cfdk68jvrw3qm"]
 
 [ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="1_player"]
+[ext_resource type="Script" path="res://scripts/world/combat_test_controller.gd" id="2_controller"]
+[ext_resource type="PackedScene" path="res://scenes/actors/training_enemy.tscn" id="3_enemy"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kb8qc"]
 albedo_color = Color(0.3372549, 0.3019608, 0.24313726, 1)
@@ -56,6 +58,7 @@ volumetric_fog_enabled = true
 volumetric_fog_density = 0.03
 
 [node name="Main" type="Node3D" unique_id=1808272799]
+script = ExtResource("2_controller")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=1811753901]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.175, 0)
@@ -86,6 +89,13 @@ mesh = SubResource("BoxMesh_4nmw7")
 [node name="Player" parent="." instance=ExtResource("1_player")]
 position = Vector3(0, 0, 1)
 
+[node name="TrainingEnemy" parent="." instance=ExtResource("3_enemy")]
+position = Vector3(-1.8, 0, -0.4)
+
+[node name="HitStopTimer" type="Timer" parent="."]
+process_mode = 3
+one_shot = true
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=676626383]
 environment = SubResource("Environment_m0kt1")
 
@@ -101,3 +111,66 @@ current = true
 fov = 28.0
 near = 0.1
 far = 100.0
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Margin" type="MarginContainer" parent="HUD"]
+mouse_filter = 2
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 570.0
+offset_bottom = 188.0
+
+[node name="Rows" type="VBoxContainer" parent="HUD/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="PlayerHealth" type="Label" parent="HUD/Margin/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.94, 0.89, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 20
+text = "无央生命：100 / 100"
+
+[node name="Stance" type="Label" parent="HUD/Margin/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.96, 0.82, 0.55, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 20
+text = "当前架势：土｜Q 切换"
+
+[node name="EnemyHealth" type="Label" parent="HUD/Margin/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.98, 0.65, 0.54, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 20
+text = "训练敌人（水）：30 / 30"
+
+[node name="ElementFeedback" type="Label" parent="HUD/Margin/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.82, 0.93, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+text = "土克水增伤｜水受土克减伤"
+
+[node name="Status" type="Label" parent="HUD/Margin/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.96, 0.92, 0.76, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 17
+text = "WASD 移动｜Q 切换架势｜空格闪避｜左键或 J 攻击"

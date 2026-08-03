@@ -10,3 +10,5 @@
 - [地图、生活习俗与场景特效风格](docs/world-map-and-art.md)
 - [主要角色、主线角色与支线角色](docs/characters-and-quests.md)
 - [墟门序章主线与支线任务表](docs/xumen-prologue-quests.md)
+- [五行服装、武器、解锁与套装共鸣](docs/five-element-equipment.md)
+- [角色像素素材合同](docs/art/character-asset-contract.md)

@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Five Land"
-run/main_scene="res://scenes/hd2d_test.tscn"
+run/main_scene="res://scenes/xumen_prologue_greybox.tscn"
 config/features=PackedStringArray("4.7")
 
 [autoload]
@@ -27,6 +27,19 @@ window/stretch/mode="canvas_items"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
+
+[layer_names]
+
+3d_physics/layer_1="World Bodies"
+3d_physics/layer_2="Player Hurtbox"
+3d_physics/layer_3="Enemy Hurtbox"
+3d_physics/layer_4="Player Hitbox"
+3d_physics/layer_5="Enemy Hitbox"
+3d_physics/layer_6="Player Body"
+
+[physics]
+
+common/physics_interpolation=true
 
 [input]
 
@@ -58,5 +71,16 @@ dodge={
 attack={
 "deadzone": 0.5,
 "events": [Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"button_mask":0,"position":Vector2(0, 0),"global_position":Vector2(0, 0),"factor":1.0,"button_index":1,"canceled":false,"pressed":false,"double_click":false,"script":null)
+, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":74,"physical_keycode":0,"key_label":0,"unicode":106,"location":0,"echo":false,"script":null)
+]
+}
+retry={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":82,"physical_keycode":0,"key_label":0,"unicode":114,"location":0,"echo":false,"script":null)
+]
+}
+switch_stance={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":81,"physical_keycode":0,"key_label":0,"unicode":113,"location":0,"echo":false,"script":null)
 ]
 }
