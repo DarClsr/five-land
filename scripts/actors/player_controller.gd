@@ -28,7 +28,7 @@ const WATER_DEFINITION = preload("res://data/elements/water.tres")
 @export var attack_range: float = 0.95
 @export var knockback_duration: float = 0.14
 
-@onready var visual: Sprite3D = $Visual
+@onready var visual: SpriteBase3D = $Visual
 @onready var health_component: HEALTH_COMPONENT_SCRIPT = $HealthComponent
 @onready var hurtbox_component: HURTBOX_COMPONENT_SCRIPT = $HurtboxComponent
 @onready var attack_hitbox: HITBOX_COMPONENT_SCRIPT = $AttackHitbox

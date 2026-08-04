@@ -31,7 +31,12 @@ func _init() -> void:
 		var player_instance := player_scene.instantiate()
 		_expect(player_instance is CharacterBody3D, "player scene uses CharacterBody3D")
 		_expect(player_instance.get_node_or_null("CollisionShape3D") != null, "player has collision")
-		_expect(player_instance.get_node_or_null("Visual") is Sprite3D, "player has HD-2D visual")
+		var visual := player_instance.get_node_or_null("Visual") as AnimatedSprite3D
+		_expect(visual != null, "player has HD-2D visual")
+		if visual:
+			_expect(visual.sprite_frames.get_frame_count("idle") == 8, "idle animation has eight frames")
+			_expect(visual.autoplay == &"idle", "idle animation autoplays")
+			_expect(is_equal_approx(visual.position.y, 0.55), "player visual feet align with ground")
 		player_instance.free()
 
 	var level_scene := load("res://scenes/hd2d_test.tscn") as PackedScene
