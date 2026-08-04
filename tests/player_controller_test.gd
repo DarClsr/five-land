@@ -35,8 +35,20 @@ func _init() -> void:
 		_expect(visual != null, "player has HD-2D visual")
 		if visual:
 			_expect(visual.sprite_frames.get_frame_count("idle") == 8, "idle animation has eight frames")
+			_expect(visual.sprite_frames.get_frame_count("walk") == 8, "walk animation has eight frames")
 			_expect(visual.autoplay == &"idle", "idle animation autoplays")
 			_expect(is_equal_approx(visual.position.y, 0.55), "player visual feet align with ground")
+			player_instance.set("visual", visual)
+			player_instance.call(&"_update_movement_animation", Vector3.RIGHT)
+			_expect(visual.animation == &"walk", "uses walk animation while moving")
+			var shader_material := visual.material_override as ShaderMaterial
+			var walk_texture := shader_material.get_shader_parameter(&"albedo_texture") as Texture2D
+			_expect(
+				walk_texture.resource_path.ends_with("wuyang_walk_iso_front_right.png"),
+				"walk animation samples the walk sheet"
+			)
+			player_instance.call(&"_update_movement_animation", Vector3.ZERO)
+			_expect(visual.animation == &"idle", "uses idle animation while stopped")
 		player_instance.free()
 
 	var level_scene := load("res://scenes/hd2d_test.tscn") as PackedScene

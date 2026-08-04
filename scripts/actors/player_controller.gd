@@ -28,7 +28,7 @@ const WATER_DEFINITION = preload("res://data/elements/water.tres")
 @export var attack_range: float = 0.95
 @export var knockback_duration: float = 0.14
 
-@onready var visual: SpriteBase3D = $Visual
+@onready var visual: AnimatedSprite3D = $Visual
 @onready var health_component: HEALTH_COMPONENT_SCRIPT = $HealthComponent
 @onready var hurtbox_component: HURTBOX_COMPONENT_SCRIPT = $HurtboxComponent
 @onready var attack_hitbox: HITBOX_COMPONENT_SCRIPT = $AttackHitbox
@@ -119,6 +119,7 @@ func _physics_process(delta: float) -> void:
 			facing_direction = move_direction
 			if not is_zero_approx(input_vector.x):
 				visual.flip_h = input_vector.x < 0.0
+	_update_movement_animation(move_direction)
 	velocity.y = 0.0
 	move_and_slide()
 
@@ -133,6 +134,20 @@ static func choose_dodge_direction(input_direction: Vector3, fallback: Vector3) 
 	if input_direction.is_zero_approx():
 		return fallback.normalized()
 	return input_direction.normalized()
+
+
+func animation_for_movement(direction: Vector3) -> StringName:
+	return &"idle" if direction.is_zero_approx() else &"walk"
+
+
+func _update_movement_animation(direction: Vector3) -> void:
+	var next_animation := animation_for_movement(direction)
+	if visual.animation == next_animation:
+		return
+	visual.play(next_animation)
+	var frame_texture := visual.sprite_frames.get_frame_texture(next_animation, 0) as AtlasTexture
+	var shader_material := visual.material_override as ShaderMaterial
+	shader_material.set_shader_parameter(&"albedo_texture", frame_texture.atlas)
 
 
 func try_start_dodge(input_direction: Vector3) -> bool:
