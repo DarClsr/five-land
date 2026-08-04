@@ -146,7 +146,7 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 20
-text = "无咎生命：100 / 100"
+text = "无央生命：100 / 100"
 
 [node name="Stance" type="Label" parent="HUD/Margin/Rows"]
 layout_mode = 2

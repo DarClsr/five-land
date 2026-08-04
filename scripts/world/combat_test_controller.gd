@@ -63,7 +63,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
-	player_health_label.text = "无咎生命：%d / %d" % [current, maximum]
+	player_health_label.text = "无央生命：%d / %d" % [current, maximum]
 
 
 func _on_enemy_health_changed(current: int, maximum: int) -> void:
@@ -101,7 +101,7 @@ func _on_attack_landed(
 
 
 func _on_player_died() -> void:
-	status_label.text = "无咎倒下了。按 R 重新挑战"
+	status_label.text = "无央倒下了。按 R 重新挑战"
 
 
 func _on_enemy_died() -> void:
