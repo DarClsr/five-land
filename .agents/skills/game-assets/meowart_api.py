@@ -4310,6 +4310,7 @@ def parse_args() -> argparse.Namespace:
     for action in character_multi_view_submit._actions[1:]:
         if action.dest not in {"help"}:
             character_multi_view_run._add_action(action)
+    character_multi_view_run.set_defaults(project_id=None, thread_id=None)
     add_shared_runtime_args(character_multi_view_run)
 
     character_multi_view_poll = subparsers.add_parser(
