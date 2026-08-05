@@ -173,4 +173,4 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 17
-text = "WASD 移动｜Q 切换架势｜空格闪避｜左键或 J 攻击"
+text = "WASD 移动｜Q 架势｜C 换装｜V 武器｜空格闪避｜J 攻击"

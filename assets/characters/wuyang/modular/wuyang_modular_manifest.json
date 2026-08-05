@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "cell_size": [
+    128,
+    128
+  ],
+  "frames_per_direction": 8,
+  "row_order_top_to_bottom": [
+    "screen_n",
+    "screen_ne",
+    "screen_e",
+    "screen_se",
+    "screen_s",
+    "screen_sw",
+    "screen_w",
+    "screen_nw"
+  ],
+  "outfits": [
+    "outfit_wanderer",
+    "outfit_earth_guard"
+  ],
+  "weapons": [
+    "weapon_none",
+    "weapon_dual_daggers"
+  ],
+  "composition": "outfit RGBA followed by weapon RGBA; identical cell anchors",
+  "source": "assets/characters/wuyang/pixel_pipeline/directions_v1/sprite_00_pixel_multi_view"
+}

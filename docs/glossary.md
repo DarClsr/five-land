@@ -74,7 +74,18 @@
 | 归墟出口 / 墟门 / 送葬道 / 封印庭院 / 负碑兽巢穴 | 序章五个区域（DeepExit / XumenGate / BurialRoad / SealCourtyard / BossArena） |
 | 青蘅森海 / 赤烬原 / 厚垣原 / 白铸城邦 / 玄溟泽国 | 木 / 火 / 土 / 金 / 水五境正式名 |
 
-## 6. 命名规范
+## 6. 视觉与资产术语
+
+| 术语 | 定义 | 相关文档 |
+|---|---|---|
+| HD-2D | 本项目的组合式画面方案：风格化 3D 场景、高清 2D 角色、固定斜俯视相机与统一光影；不要求像素美术 | world-map-and-art / character-asset-contract |
+| 高清方向帧 | 在固定斜俯视相机下绘制的非像素 RGBA 角色帧；正式角色至少包含屏幕八方向 | character-asset-contract / wuyang-hd2d-render-contract |
+| 风格化低多边形 3D | 以简化几何、清晰轮廓和手绘材质构成的场景表现，不追求照片扫描式写实 | world-map-and-art |
+| 脚底锚点 | 所有方向与动作帧共享的双脚中点基线，用于防止移动和换装时角色跳动 | character-asset-contract |
+| 视觉代理 | 不直接显示的简化 3D 体，用于碰撞、接触阴影、长阴影或遮挡计算，不作为角色最终美术 | wuyang-hd2d-render-contract |
+| 运行时合成 | 将身体、头发、服装、武器与特效等源图层预合成或受控组合成单个角色表现，避免透明层排序错误 | character-asset-contract |
+
+## 7. 命名规范
 
 - 主角：**无央**（全库统一，禁止使用「无咎」）。
 - 文档文件：kebab-case（`docs/combat-system-spec.md`）。

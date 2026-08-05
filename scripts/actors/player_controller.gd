@@ -3,6 +3,7 @@ extends CharacterBody3D
 
 signal died
 signal stance_changed(element: int, display_name: String, color: Color)
+signal equipment_visual_changed(outfit_index: int, weapon_index: int)
 signal attack_landed(
 	applied_damage: int,
 	multiplier: float,
@@ -18,6 +19,15 @@ const ELEMENT_COMPONENT_SCRIPT = preload("res://scripts/components/element_compo
 const ELEMENT_DEFINITION_SCRIPT = preload("res://scripts/combat/element_definition.gd")
 const EARTH_DEFINITION = preload("res://data/elements/earth.tres")
 const WATER_DEFINITION = preload("res://data/elements/water.tres")
+const DIRECTIONAL_SPRITE_FRAMES = preload("res://scripts/actors/directional_sprite_frames.gd")
+const OUTFIT_ATLASES: Array[Texture2D] = [
+	preload("res://assets/characters/wuyang/modular/outfit_wanderer_8dir_atlas.png"),
+	preload("res://assets/characters/wuyang/modular/outfit_earth_guard_8dir_atlas.png"),
+]
+const WEAPON_ATLASES: Array[Texture2D] = [
+	preload("res://assets/characters/wuyang/modular/weapon_none_8dir_atlas.png"),
+	preload("res://assets/characters/wuyang/modular/weapon_dual_daggers_8dir_atlas.png"),
+]
 
 @export var move_speed: float = 4.5
 @export var dodge_speed: float = 10.0
@@ -27,16 +37,27 @@ const WATER_DEFINITION = preload("res://data/elements/water.tres")
 @export var attack_cooldown: float = 0.32
 @export var attack_range: float = 0.95
 @export var knockback_duration: float = 0.14
-@export var animation_normal_maps: Dictionary[StringName, Texture2D] = {}
+@export var idle_direction_atlas: Texture2D
+@export var walk_direction_atlas: Texture2D
+@export var validation_frame: Texture2D
+@export_file("*.png") var validation_frame_path: String = ""
+@export var use_validation_frame: bool = false
+## The GLB remains available as an offline animation/render source. Runtime uses
+## the eight-direction sprite by default to preserve the 2.5D visual contract.
+@export var use_3d_model: bool = false
+@export var model_turn_speed: float = 14.0
+@export var model_yaw_offset: float = 0.0
 
 @onready var visual: AnimatedSprite3D = $Visual
+@onready var visual_3d: Node3D = $Visual3D
+@onready var model_animation_player: AnimationPlayer = $Visual3D/WuyangModel/AnimationPlayer
 @onready var health_component: HEALTH_COMPONENT_SCRIPT = $HealthComponent
 @onready var hurtbox_component: HURTBOX_COMPONENT_SCRIPT = $HurtboxComponent
 @onready var attack_hitbox: HITBOX_COMPONENT_SCRIPT = $AttackHitbox
 @onready var element_component: ELEMENT_COMPONENT_SCRIPT = $ElementComponent
 
 var facing_direction: Vector3 = Vector3.FORWARD
-var facing_quadrant: StringName = &"front_right"
+var facing_screen_direction: StringName = &"screen_s"
 var dodge_direction: Vector3 = Vector3.ZERO
 var dodge_time_remaining: float = 0.0
 var dodge_cooldown_remaining: float = 0.0
@@ -50,9 +71,20 @@ var _knockback_time_remaining: float = 0.0
 var _base_visual_color: Color = Color.WHITE
 var _visual_tween: Tween
 var _dead: bool = false
+var _model_animation: StringName = &""
+var _model_materials: Array[StandardMaterial3D] = []
+var _model_material_roles: Array[StringName] = []
+var _model_source_colors: Array[Color] = []
+var _model_base_colors: Array[Color] = []
+var _model_tint: Color = Color.WHITE
+var outfit_visual_index: int = 0
+var weapon_visual_index: int = 1
+var _composed_equipment_atlas: ImageTexture
 
 
 func _ready() -> void:
+	_configure_directional_animations()
+	_configure_visual_mode()
 	element_component.element_changed.connect(_on_element_changed)
 	attack_hitbox.hit_resolved.connect(_on_attack_hit_resolved)
 	hurtbox_component.hurt.connect(_on_hurt)
@@ -82,6 +114,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_dodge_requested = true
 	if event.is_action_pressed(&"switch_stance"):
 		_stance_switch_requested = true
+	if event.is_action_pressed(&"cycle_outfit"):
+		equip_outfit_visual((outfit_visual_index + 1) % OUTFIT_ATLASES.size())
+	if event.is_action_pressed(&"cycle_weapon"):
+		equip_weapon_visual((weapon_visual_index + 1) % WEAPON_ATLASES.size())
 
 
 func _physics_process(delta: float) -> void:
@@ -119,7 +155,13 @@ func _physics_process(delta: float) -> void:
 		velocity = move_direction * move_speed
 		if not move_direction.is_zero_approx():
 			facing_direction = move_direction
-			_update_facing_quadrant(camera)
+			facing_screen_direction = resolve_screen_direction(
+				input_vector, facing_screen_direction
+			)
+	if use_3d_model:
+		var model_turn_direction := dodge_direction if is_invulnerable() else move_direction
+		if not model_turn_direction.is_zero_approx():
+			_update_model_facing(model_turn_direction, delta)
 	_update_movement_animation(move_direction)
 	velocity.y = 0.0
 	move_and_slide()
@@ -141,43 +183,202 @@ func animation_for_movement(direction: Vector3) -> StringName:
 	return &"idle" if direction.is_zero_approx() else &"walk"
 
 
-static func resolve_facing_quadrant(
-	direction: Vector3, camera_right: Vector3, camera_forward: Vector3
+static func resolve_screen_direction(
+	input: Vector2, fallback: StringName = &"screen_s"
 ) -> StringName:
-	camera_right.y = 0.0
-	camera_forward.y = 0.0
-	if camera_right.is_zero_approx() or camera_forward.is_zero_approx():
-		return &"front_right"
-	var is_right: bool = direction.dot(camera_right.normalized()) >= 0.0
-	## The threshold (instead of pure sign) keeps the sprite on a front-facing
-	## pose for near-lateral movement: with 4 3/4-angle sprites and no true
-	## "side" frame, pure horizontal motion (dot_forward ~0) would otherwise
-	## fall into a back-facing quadrant and the player would see the
-	## character's back (no face) while moving sideways, which reads as
-	## "facing the wrong way". Anything mostly toward the camera reads as front.
-	var is_front: bool = direction.dot(camera_forward.normalized()) < 0.15
-	if is_front:
-		return &"front_right" if is_right else &"front_left"
-	return &"back_right" if is_right else &"back_left"
+	if input.is_zero_approx():
+		return fallback
+	var sector := posmod(int(round(atan2(input.y, input.x) / (PI / 4.0))), 8)
+	match sector:
+		0:
+			return &"screen_e"
+		1:
+			return &"screen_ne"
+		2:
+			return &"screen_n"
+		3:
+			return &"screen_nw"
+		4:
+			return &"screen_w"
+		5:
+			return &"screen_sw"
+		6:
+			return &"screen_s"
+		_:
+			return &"screen_se"
 
 
-func _update_facing_quadrant(camera: Camera3D) -> void:
-	if camera == null:
+static func model_yaw_for_direction(direction: Vector3, yaw_offset: float = 0.0) -> float:
+	if direction.is_zero_approx():
+		return yaw_offset
+	# Blender's local -Y character front becomes local +Z after glTF import.
+	return atan2(direction.x, direction.z) + yaw_offset
+
+
+func _configure_directional_animations() -> void:
+	if use_validation_frame:
+		if validation_frame == null:
+			validation_frame = _load_validation_frame()
+		if validation_frame == null:
+			push_error("Player is missing the HD validation frame")
+			return
+		visual.sprite_frames = DIRECTIONAL_SPRITE_FRAMES.build_validation_frame(
+			validation_frame
+		)
+		_set_visual_shader_texture(validation_frame)
+		visual.play(&"idle_screen_s")
 		return
-	facing_quadrant = resolve_facing_quadrant(
-		facing_direction, camera.global_basis.x, -camera.global_basis.z
+	if idle_direction_atlas == null or walk_direction_atlas == null:
+		push_error("Player is missing the HD2D direction atlases")
+		return
+	_composed_equipment_atlas = _compose_equipment_atlas(
+		OUTFIT_ATLASES[outfit_visual_index], WEAPON_ATLASES[weapon_visual_index]
+	)
+	visual.sprite_frames = DIRECTIONAL_SPRITE_FRAMES.build(
+		_composed_equipment_atlas, _composed_equipment_atlas
+	)
+	_set_visual_shader_texture(_composed_equipment_atlas)
+	visual.play(&"idle_screen_s")
+
+
+func _load_validation_frame() -> Texture2D:
+	if validation_frame_path.is_empty() or not FileAccess.file_exists(validation_frame_path):
+		return null
+	var image := Image.load_from_file(validation_frame_path)
+	if image == null or image.is_empty():
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _set_visual_shader_texture(texture: Texture2D) -> void:
+	var shader_material := visual.material_override as ShaderMaterial
+	if shader_material != null:
+		shader_material.set_shader_parameter(&"albedo_texture", texture)
+
+
+func _compose_equipment_atlas(outfit_atlas: Texture2D, weapon_atlas: Texture2D) -> ImageTexture:
+	var outfit_image: Image = outfit_atlas.get_image()
+	var weapon_image: Image = weapon_atlas.get_image()
+	assert(outfit_image.get_size() == weapon_image.get_size(), "Equipment atlases must align")
+	outfit_image.convert(Image.FORMAT_RGBA8)
+	weapon_image.convert(Image.FORMAT_RGBA8)
+	outfit_image.blend_rect(
+		weapon_image,
+		Rect2i(Vector2i.ZERO, weapon_image.get_size()),
+		Vector2i.ZERO
+	)
+	return ImageTexture.create_from_image(outfit_image)
+
+
+func equip_outfit_visual(index: int) -> bool:
+	if index < 0 or index >= OUTFIT_ATLASES.size():
+		return false
+	outfit_visual_index = index
+	_configure_directional_animations()
+	_apply_model_equipment_visuals()
+	equipment_visual_changed.emit(outfit_visual_index, weapon_visual_index)
+	return true
+
+
+func equip_weapon_visual(index: int) -> bool:
+	if index < 0 or index >= WEAPON_ATLASES.size():
+		return false
+	weapon_visual_index = index
+	_configure_directional_animations()
+	_apply_model_equipment_visuals()
+	equipment_visual_changed.emit(outfit_visual_index, weapon_visual_index)
+	return true
+
+
+func _configure_visual_mode() -> void:
+	visual.visible = not use_3d_model
+	visual_3d.visible = use_3d_model
+	if not use_3d_model:
+		return
+	_model_materials.clear()
+	_model_material_roles.clear()
+	_model_source_colors.clear()
+	_model_base_colors.clear()
+	for animation_name: StringName in [&"wuyang_idle", &"wuyang_walk"]:
+		var animation := model_animation_player.get_animation(animation_name)
+		if animation != null:
+			animation.loop_mode = Animation.LOOP_LINEAR
+	for node: Node in visual_3d.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var source_material := mesh_instance.get_active_material(0) as StandardMaterial3D
+		if source_material == null:
+			continue
+		var toon_material := source_material.duplicate(true) as StandardMaterial3D
+		toon_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+		toon_material.specular_mode = BaseMaterial3D.SPECULAR_TOON
+		toon_material.roughness = 0.82
+		toon_material.rim_enabled = true
+		toon_material.rim = 0.3
+		toon_material.rim_tint = 0.22
+		mesh_instance.material_override = toon_material
+		_model_materials.append(toon_material)
+		_model_material_roles.append(source_material.resource_name)
+		_model_source_colors.append(toon_material.albedo_color)
+		_model_base_colors.append(toon_material.albedo_color)
+	_apply_model_equipment_visuals()
+	_play_model_animation(&"wuyang_idle")
+
+
+func _apply_model_equipment_visuals() -> void:
+	if not use_3d_model or visual_3d == null:
+		return
+	for index: int in _model_materials.size():
+		var color := _model_source_colors[index]
+		if outfit_visual_index == 1:
+			match _model_material_roles[index]:
+				&"M_BlueGray", &"M_Wuyang_IndigoCloth":
+					color = Color("384139")
+				&"M_InkBlue", &"M_Wuyang_InkCloth":
+					color = Color("1f2924")
+				&"M_Cinnabar", &"M_Wuyang_Vermilion":
+					color = Color("815022")
+		_model_base_colors[index] = color
+		_model_materials[index].albedo_color = color * _model_tint
+	var show_weapon := weapon_visual_index == 1
+	for node: Node in visual_3d.find_children("*", "MeshInstance3D", true, false):
+		if node.name.begins_with("Dagger") or node.name.begins_with("V3_Pommel"):
+			(node as MeshInstance3D).visible = show_weapon
+
+
+func _update_model_facing(direction: Vector3, delta: float) -> void:
+	var target_yaw := model_yaw_for_direction(direction, model_yaw_offset)
+	visual_3d.rotation.y = lerp_angle(
+		visual_3d.rotation.y, target_yaw, clampf(model_turn_speed * delta, 0.0, 1.0)
 	)
 
 
+func _play_model_animation(animation_name: StringName) -> void:
+	if _model_animation == animation_name:
+		return
+	if not model_animation_player.has_animation(animation_name):
+		push_error("Wuyang 3D model is missing animation: %s" % animation_name)
+		return
+	_model_animation = animation_name
+	model_animation_player.play(animation_name, 0.12)
+
+
 func _update_movement_animation(direction: Vector3) -> void:
-	var next_animation := StringName("%s_%s" % [animation_for_movement(direction), facing_quadrant])
+	if use_3d_model:
+		var model_animation := StringName("wuyang_%s" % animation_for_movement(direction))
+		_play_model_animation(model_animation)
+		return
+	var next_animation := StringName(
+		"%s_%s" % [animation_for_movement(direction), facing_screen_direction]
+	)
 	if visual.animation == next_animation:
 		return
 	visual.play(next_animation)
-	var frame_texture := visual.sprite_frames.get_frame_texture(next_animation, 0) as AtlasTexture
-	var shader_material := visual.material_override as ShaderMaterial
-	shader_material.set_shader_parameter(&"albedo_texture", frame_texture.atlas)
-	shader_material.set_shader_parameter(&"normal_map", animation_normal_maps.get(next_animation))
+	var frame_texture := visual.sprite_frames.get_frame_texture(next_animation, 0)
+	if frame_texture is AtlasTexture:
+		_set_visual_shader_texture((frame_texture as AtlasTexture).atlas)
+	elif frame_texture != null:
+		_set_visual_shader_texture(frame_texture)
 
 
 func try_start_dodge(input_direction: Vector3) -> bool:
@@ -238,12 +439,14 @@ func _on_died() -> void:
 	attack_hitbox.set_active(false)
 	hurtbox_component.set_enabled(false)
 	visual.modulate = Color(0.35, 0.12, 0.12, 1.0)
+	_set_model_tint(Color(0.42, 0.16, 0.16))
 	died.emit()
 
 
 func _on_element_changed(element: int, display_name: String, color: Color) -> void:
 	_base_visual_color = color.lightened(0.18)
 	visual.modulate = _base_visual_color
+	_set_model_tint(color.lightened(0.72))
 	stance_changed.emit(element, display_name, color)
 
 
@@ -265,6 +468,21 @@ func _flash_hurt() -> void:
 	_visual_tween = create_tween()
 	_visual_tween.tween_interval(0.05)
 	_visual_tween.tween_property(visual, "modulate", _base_visual_color, 0.08)
+	_set_model_emission(Color.WHITE, 1.2)
+	_visual_tween.tween_callback(_set_model_emission.bind(Color.BLACK, 0.0))
+
+
+func _set_model_tint(tint: Color) -> void:
+	_model_tint = tint
+	for index: int in _model_materials.size():
+		_model_materials[index].albedo_color = _model_base_colors[index] * tint
+
+
+func _set_model_emission(color: Color, energy: float) -> void:
+	for material: StandardMaterial3D in _model_materials:
+		material.emission_enabled = energy > 0.0
+		material.emission = color
+		material.emission_energy_multiplier = energy
 
 
 func _on_attack_hit_resolved(

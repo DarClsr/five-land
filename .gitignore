@@ -4,3 +4,6 @@
 __pycache__/
 .reasonix/
 .workbuddy/
+tmp/
+*.blend1
+assets/characters/wuyang/pixel_pipeline/

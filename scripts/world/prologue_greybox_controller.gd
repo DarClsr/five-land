@@ -52,7 +52,7 @@ func _ready() -> void:
 	var definition: ELEMENT_DEFINITION_SCRIPT = player.element_component.get_definition()
 	_on_stance_changed(definition.element, definition.display_name, definition.color)
 	_update_zone(&"DeepExit")
-	status_label.text = "WASD 移动｜Q 切换架势｜空格闪避｜左键或 J 攻击"
+	status_label.text = "WASD 移动｜Q 架势｜C 换装｜V 武器｜空格闪避｜J 攻击"
 
 
 func _exit_tree() -> void:

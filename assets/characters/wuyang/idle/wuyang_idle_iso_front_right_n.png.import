@@ -3,27 +3,28 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://be1r6825agigk"
-path="res://.godot/imported/wuyang_idle_iso_front_right_n.png-5afb80e84c4679fbd7f8592b6ef73f0c.ctex"
+path.s3tc="res://.godot/imported/wuyang_idle_iso_front_right_n.png-5afb80e84c4679fbd7f8592b6ef73f0c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/characters/wuyang/idle/wuyang_idle_iso_front_right_n.png"
-dest_files=["res://.godot/imported/wuyang_idle_iso_front_right_n.png-5afb80e84c4679fbd7f8592b6ef73f0c.ctex"]
+dest_files=["res://.godot/imported/wuyang_idle_iso_front_right_n.png-5afb80e84c4679fbd7f8592b6ef73f0c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -37,4 +38,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
