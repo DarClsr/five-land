@@ -86,8 +86,8 @@ func _init() -> void:
 			player_instance.call(&"_configure_directional_animations")
 			_expect(visual.sprite_frames.get_frame_count("idle_screen_s") == 1, "validation idle uses one frame")
 			_expect(visual.sprite_frames.get_frame_count("walk_screen_e") == 1, "validation walk uses one frame")
-			_expect(is_equal_approx(visual.position.y, 0.9), "player visual feet align with ground")
-			_expect(is_equal_approx(visual.pixel_size, 0.00135), "HD validation frame fits the world scale")
+			_expect(is_equal_approx(visual.position.y, 1.02), "player visual feet align with ground")
+			_expect(is_equal_approx(visual.pixel_size, 0.00155), "HD validation frame reads at gameplay scale")
 			_expect(
 				visual.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
 				"player uses only the authored ground shadow"

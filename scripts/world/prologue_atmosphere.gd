@@ -183,7 +183,7 @@ func _box_mesh(size: Vector3, color: Color, emissive: bool = false) -> MeshInsta
 	if emissive:
 		material.emission_enabled = true
 		material.emission = color
-		material.emission_energy_multiplier = 2.6
+		material.emission_energy_multiplier = 1.55
 	mesh_instance.material_override = material
 	return mesh_instance
 
