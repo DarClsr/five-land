@@ -12,13 +12,15 @@
 
 ### 1.1 公共风格锚点（每条提示词附带的风格描述）
 
+视角锚点（人物与怪物通用，**必须保留**）：相机从上方约 30–40° 俯视角色，能看到头顶与肩部透视压缩，肩宽大于胯宽，双脚明确接地、脚底不悬浮。
+
 中文（默认）：
 
-> 淡雅国风人物立绘，旧版画、纸扎、墓契、绳结与民俗禁忌的东方志怪质感，清晰线稿，克制赛璐璐明暗，成熟比例，左上方冷色月光，透明背景。
+> 淡雅国风人物立绘，旧版画、纸扎、墓契、绳结与民俗禁忌的东方志怪质感，清晰线稿，克制赛璐璐明暗，成熟比例，左上方冷色月光，透明背景。相机从上方约 30–40° 俯视角色，能看到头顶与肩部透视压缩，肩宽大于胯宽，双脚明确接地、脚底不悬浮。
 
 英文（第三方工具不支持中文时使用）：
 
-> Elegant Chinese-style character illustration, Oriental dark-fantasy folklore mood inspired by old woodblock prints, paper effigies, burial contracts and folk taboos, clean linework, restrained cel shading, mature proportions, cold moonlight from upper left, transparent background.
+> Elegant Chinese-style character illustration, Oriental dark-fantasy folklore mood inspired by old woodblock prints, paper effigies, burial contracts and folk taboos, clean linework, restrained cel shading, mature proportions, cold moonlight from upper left, transparent background. Camera looks down at the character from a 30-40 degree top angle, crown of the head and compressed shoulder width visible, shoulders wider than hips, both feet planted firmly on the ground, soles not floating.
 
 ## 2. 人物提示词
 
@@ -28,7 +30,7 @@
 
 | 角色 | 提示词（在公共锚点后追加） | 参考图 |
 |---|---|---|
-| 无央（基础形态） | 女性人形容器，长白发与青色瞳孔，墨青与灰白交领短袍，窄袖内衫，非对称衣摆与褪色朱砂绳，手持一对素黑归墟双匕，放松待机站姿 | `assets/characters/wuyang/neutral/wuyang_neutral_hd.png` |
+| 无央（基础形态） | 女性人形容器，长白发与青色瞳孔，墨青与灰白交领短袍，窄袖内衫，非对称衣摆与褪色朱砂绳，手持一对素黑归墟双匕，放松待机站姿；相机从上方约 30–40° 俯视，能看到头顶与肩部透视压缩，双脚明确接地 | `assets/characters/wuyang/neutral/wuyang_neutral_hd.png` |
 | 阿砾 | 男性土境送葬人，深棕短发有风尘感，黄褐与青灰叠层送葬袍，腰间墓契木牌与绳结，肩部短披风，克制站姿 | 无（首张定稿后回链） |
 | 太衡 | 五衡院首领，玄黑与旧金官袍，高冠，领口绣褪色五行环，手持黑色衡印，庄重疲惫的端正站姿 | 无 |
 | 引渊人（残响） | 半透明形体，兜帽斗篷，无脚衣摆下是雾气，手提一盏青白纸灯，温和引导姿态 | 无央母版（渐似同源） |
@@ -108,17 +110,25 @@
 | 水境 | 船屋高脚楼泊灯港，深青水面与白色雨幕，月光与琥珀舟灯，动态倒影 |
 | 中央归墟 | 倒悬遗迹拼合而成的残响城，近黑岩体，五色脉络逐层恢复，体积光 |
 
-### 4.2 HD 无缝材质（64×64，`texture` 流程）
+### 4.2 HD 无缝地面材质（3D UV 平铺，`image-2-run` + `self-loop-run` 流程）
 
-| 材质 | 提示词 |
-|---|---|
-| 土地 | 64×64 无缝土质地面，黄褐岩石与细裂纹，可平铺 |
-| 墓石 | 64×64 无缝墓碑石面，灰白风化与青苔，可平铺 |
-| 腐败 | 64×64 无缝腐败地面，错位石脉与黑渍，暗色，可平铺 |
-| 木境地面 | 64×64 无缝林地地面，落叶与树根，深绿棕，可平铺 |
-| 火境地面 | 64×64 无缝熔岩地面，黑玄武岩与朱红裂纹，可平铺 |
-| 金境地面 | 64×64 无缝金属地面，银灰板与锈红铆钉，可平铺 |
-| 水境地面 | 64×64 无缝湿石地面，深青石板与积水反光，可平铺 |
+本项目的地面是 3D `BoxMesh` + `StandardMaterial3D`（`greybox_route.gd` 按 `uv1_scale` 平铺），不是 2D 瓦片地图，因此**不适用** `texture-gen-run`/`tileset-gen-run` 的 64×64 像素风无缝材质契约（该契约输出赛璐璐粗黑描边的像素画风，与角色的水墨国风插画质感冲突，实测确认过一次，见下方「验证记录」）。正确流程：
+
+1. `image-2-run --prompt "<提示词>，正上方俯视，完全无透视，清晰线稿与克制赛璐璐明暗，冷色月光调，图案可无缝循环平铺，画面中不含人物、文字、边框、光晕" --resolution 1K --aspect-ratio 1:1 --quality standard` 先出样张确认画风；
+2. 确认画风后用 `self-loop-run --image-file <样张> --mode texture` 生成横竖双向真正无缝的贴图（输出 `seamless_self_loop.png` 与 `step_20_tiling_preview.png`，务必用平铺预览图检查接缝）；
+3. 把 `seamless_self_loop.png` 拷贝进 `assets/textures/terrain/`，运行一次 `godot --headless --path . --import` 生成 `.import` 后即可在 `greybox_route.gd` 中通过 `preload()` 引用。
+
+| 材质 | 提示词（不含通用后缀） | 状态 |
+|---|---|---|
+| 土地 | 东方志怪暗黑奇幻地面材质：黄褐岩层与细密裂纹 | 已生成，`assets/textures/terrain/ground_soil.png` |
+| 墓石 | 东方志怪暗黑奇幻地面材质：灰白风化墓碑石面，浅青苔斑驳 | 已生成，`assets/textures/terrain/grave_stone.png` |
+| 腐败 | 东方志怪暗黑奇幻地面材质：土行腐败地面，错位灰绿石脉与暗黑渍痕蔓延 | 已生成，`assets/textures/terrain/corruption_ground.png` |
+| 木境地面 | 无缝林地地面，落叶与树根，深绿棕 | 待生成 |
+| 火境地面 | 无缝熔岩地面，黑玄武岩与朱红裂纹 | 待生成 |
+| 金境地面 | 无缝金属地面，银灰板与锈红铆钉 | 待生成 |
+| 水境地面 | 无缝湿石地面，深青石板与积水反光 | 待生成 |
+
+**验证记录**：`texture-gen-run --prompt "64x64 无缝土质地面..."` 生成的样张为亮橙色赛璐璐粗黑描边像素画，与角色 HD 插画风格明显脱节，因此弃用该命令族，改用上述 `image-2-run`/`self-loop-run` 组合。
 
 ## 5. 道具提示词
 
@@ -171,3 +181,4 @@
 3. 场景与材质：概念图先验证风格，再按 4.2 节生成无缝材质与 tiles。
 4. 验收清单：尺寸 1024×1024（或预设尺寸）、透明边缘干净、无白边黑边、脚底锚点一致、动画循环无跳变、材质无缝无接缝、比例在 1280×720 镜头下目标高度 100–120 像素。
 5. 只提交验收通过的最终文件，中间候选与参考图不进游戏资产目录。
+6. 立体化：每个验收通过的静态帧/动画帧，额外用本地工具（如 Laigter）生成一张同名法线贴图（`_n` 后缀）随最终文件一并导入 `assets/characters/<character>/`；这一步是解决角色「纸片人」观感的根本手段，优先级高于单纯调整场景光照或 shader 参数（参见《角色高清素材合同》Godot 导入规范）。

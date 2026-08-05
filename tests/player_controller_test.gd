@@ -9,6 +9,22 @@ func _init() -> void:
 		Vector2(1.0, 1.0), Vector3.RIGHT, Vector3.FORWARD
 	)
 	_expect_vector(diagonal, Vector3(1.0, 0.0, -1.0).normalized(), "normalizes diagonal movement")
+	_expect(
+		PlayerController.resolve_facing_quadrant(Vector3(1.0, 0.0, 1.0), Vector3.RIGHT, Vector3.FORWARD) == &"front_right",
+		"buckets toward-camera-right movement as front_right"
+	)
+	_expect(
+		PlayerController.resolve_facing_quadrant(Vector3(-1.0, 0.0, 1.0), Vector3.RIGHT, Vector3.FORWARD) == &"front_left",
+		"buckets toward-camera-left movement as front_left"
+	)
+	_expect(
+		PlayerController.resolve_facing_quadrant(Vector3(1.0, 0.0, -1.0), Vector3.RIGHT, Vector3.FORWARD) == &"back_right",
+		"buckets away-from-camera-right movement as back_right"
+	)
+	_expect(
+		PlayerController.resolve_facing_quadrant(Vector3(-1.0, 0.0, -1.0), Vector3.RIGHT, Vector3.FORWARD) == &"back_left",
+		"buckets away-from-camera-left movement as back_left"
+	)
 	_expect_vector(
 		PlayerController.choose_dodge_direction(Vector3.ZERO, Vector3.LEFT),
 		Vector3.LEFT,
@@ -34,13 +50,13 @@ func _init() -> void:
 		var visual := player_instance.get_node_or_null("Visual") as AnimatedSprite3D
 		_expect(visual != null, "player has HD-2D visual")
 		if visual:
-			_expect(visual.sprite_frames.get_frame_count("idle") == 8, "idle animation has eight frames")
-			_expect(visual.sprite_frames.get_frame_count("walk") == 8, "walk animation has eight frames")
-			_expect(visual.autoplay == &"idle", "idle animation autoplays")
-			_expect(is_equal_approx(visual.position.y, 0.55), "player visual feet align with ground")
+			_expect(visual.sprite_frames.get_frame_count("idle_front_right") == 8, "idle animation has eight frames")
+			_expect(visual.sprite_frames.get_frame_count("walk_front_right") == 8, "walk animation has eight frames")
+			_expect(visual.autoplay == &"idle_front_right", "idle animation autoplays")
+			_expect(is_equal_approx(visual.position.y, 0.9), "player visual feet align with ground")
 			player_instance.set("visual", visual)
 			player_instance.call(&"_update_movement_animation", Vector3.RIGHT)
-			_expect(visual.animation == &"walk", "uses walk animation while moving")
+			_expect(visual.animation == &"walk_front_right", "uses walk animation while moving")
 			var shader_material := visual.material_override as ShaderMaterial
 			var walk_texture := shader_material.get_shader_parameter(&"albedo_texture") as Texture2D
 			_expect(
@@ -48,7 +64,7 @@ func _init() -> void:
 				"walk animation samples the walk sheet"
 			)
 			player_instance.call(&"_update_movement_animation", Vector3.ZERO)
-			_expect(visual.animation == &"idle", "uses idle animation while stopped")
+			_expect(visual.animation == &"idle_front_right", "uses idle animation while stopped")
 		player_instance.free()
 
 	var level_scene := load("res://scenes/hd2d_test.tscn") as PackedScene

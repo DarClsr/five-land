@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w4fblivfsm41"
-path="res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"
+uid="uid://bx2k5mwlju1qh"
+path="res://.godot/imported/wuyang_neutral_hd_3q_view.png-6125c7da62d3cea979ba69f45d0fb9b2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/wuyang/idle/wuyang_idle_iso_front_right.png"
-dest_files=["res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"]
+source_file="res://assets/characters/wuyang/neutral/wuyang_neutral_hd_3q_view.png"
+dest_files=["res://.godot/imported/wuyang_neutral_hd_3q_view.png-6125c7da62d3cea979ba69f45d0fb9b2.ctex"]
 
 [params]
 

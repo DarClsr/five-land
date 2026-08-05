@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w4fblivfsm41"
-path="res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"
+uid="uid://cnep66g44wber"
+path="res://.godot/imported/corruption_ground.png-3f57d66286fc5fa97490be4e3752eeef.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/wuyang/idle/wuyang_idle_iso_front_right.png"
-dest_files=["res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"]
+source_file="res://assets/textures/terrain/corruption_ground.png"
+dest_files=["res://.godot/imported/corruption_ground.png-3f57d66286fc5fa97490be4e3752eeef.ctex"]
 
 [params]
 

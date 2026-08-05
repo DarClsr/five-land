@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w4fblivfsm41"
-path="res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"
+uid="uid://blbc116a8gxdy"
+path="res://.godot/imported/grave_stone.png-ff23af2408a3257d2c56858bb23fed0b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/wuyang/idle/wuyang_idle_iso_front_right.png"
-dest_files=["res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"]
+source_file="res://assets/textures/terrain/grave_stone.png"
+dest_files=["res://.godot/imported/grave_stone.png-ff23af2408a3257d2c56858bb23fed0b.ctex"]
 
 [params]
 

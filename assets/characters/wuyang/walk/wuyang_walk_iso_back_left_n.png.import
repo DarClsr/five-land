@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w4fblivfsm41"
-path="res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"
+uid="uid://c6gcmjd3osskf"
+path="res://.godot/imported/wuyang_walk_iso_back_left_n.png-bddeeb0cbb3a9a1de873f4344800a5be.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/wuyang/idle/wuyang_idle_iso_front_right.png"
-dest_files=["res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"]
+source_file="res://assets/characters/wuyang/walk/wuyang_walk_iso_back_left_n.png"
+dest_files=["res://.godot/imported/wuyang_walk_iso_back_left_n.png-bddeeb0cbb3a9a1de873f4344800a5be.ctex"]
 
 [params]
 

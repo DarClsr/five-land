@@ -27,6 +27,7 @@ const WATER_DEFINITION = preload("res://data/elements/water.tres")
 @export var attack_cooldown: float = 0.32
 @export var attack_range: float = 0.95
 @export var knockback_duration: float = 0.14
+@export var animation_normal_maps: Dictionary[StringName, Texture2D] = {}
 
 @onready var visual: AnimatedSprite3D = $Visual
 @onready var health_component: HEALTH_COMPONENT_SCRIPT = $HealthComponent
@@ -35,6 +36,7 @@ const WATER_DEFINITION = preload("res://data/elements/water.tres")
 @onready var element_component: ELEMENT_COMPONENT_SCRIPT = $ElementComponent
 
 var facing_direction: Vector3 = Vector3.FORWARD
+var facing_quadrant: StringName = &"front_right"
 var dodge_direction: Vector3 = Vector3.ZERO
 var dodge_time_remaining: float = 0.0
 var dodge_cooldown_remaining: float = 0.0
@@ -117,8 +119,7 @@ func _physics_process(delta: float) -> void:
 		velocity = move_direction * move_speed
 		if not move_direction.is_zero_approx():
 			facing_direction = move_direction
-			if not is_zero_approx(input_vector.x):
-				visual.flip_h = input_vector.x < 0.0
+			_update_facing_quadrant(camera)
 	_update_movement_animation(move_direction)
 	velocity.y = 0.0
 	move_and_slide()
@@ -140,14 +141,37 @@ func animation_for_movement(direction: Vector3) -> StringName:
 	return &"idle" if direction.is_zero_approx() else &"walk"
 
 
+static func resolve_facing_quadrant(
+	direction: Vector3, camera_right: Vector3, camera_forward: Vector3
+) -> StringName:
+	camera_right.y = 0.0
+	camera_forward.y = 0.0
+	if camera_right.is_zero_approx() or camera_forward.is_zero_approx():
+		return &"front_right"
+	var is_right: bool = direction.dot(camera_right.normalized()) >= 0.0
+	var is_front: bool = direction.dot(camera_forward.normalized()) <= 0.0
+	if is_front:
+		return &"front_right" if is_right else &"front_left"
+	return &"back_right" if is_right else &"back_left"
+
+
+func _update_facing_quadrant(camera: Camera3D) -> void:
+	if camera == null:
+		return
+	facing_quadrant = resolve_facing_quadrant(
+		facing_direction, camera.global_basis.x, -camera.global_basis.z
+	)
+
+
 func _update_movement_animation(direction: Vector3) -> void:
-	var next_animation := animation_for_movement(direction)
+	var next_animation := StringName("%s_%s" % [animation_for_movement(direction), facing_quadrant])
 	if visual.animation == next_animation:
 		return
 	visual.play(next_animation)
 	var frame_texture := visual.sprite_frames.get_frame_texture(next_animation, 0) as AtlasTexture
 	var shader_material := visual.material_override as ShaderMaterial
 	shader_material.set_shader_parameter(&"albedo_texture", frame_texture.atlas)
+	shader_material.set_shader_parameter(&"normal_map", animation_normal_maps.get(next_animation))
 
 
 func try_start_dodge(input_direction: Vector3) -> bool:

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w4fblivfsm41"
-path="res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"
+uid="uid://csgeb67mr5vxx"
+path="res://.godot/imported/ground_soil.png-f890831de40b7187e44608c94daebd59.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/wuyang/idle/wuyang_idle_iso_front_right.png"
-dest_files=["res://.godot/imported/wuyang_idle_iso_front_right.png-be1384f96bb070c06a988f5872aebc0a.ctex"]
+source_file="res://assets/textures/terrain/ground_soil.png"
+dest_files=["res://.godot/imported/ground_soil.png-f890831de40b7187e44608c94daebd59.ctex"]
 
 [params]
 

@@ -7,7 +7,15 @@ const WALL_COLOR: Color = Color(0.47, 0.45, 0.39, 1.0)
 const CORRUPTION_COLOR: Color = Color(0.19, 0.28, 0.25, 1.0)
 const SEAL_COLOR: Color = Color(0.56, 0.45, 0.25, 1.0)
 
+## Meters of world-space floor covered by one tile of a terrain texture.
+const TERRAIN_TILE_METERS: float = 2.5
+
+const GROUND_SOIL_TEXTURE: Texture2D = preload("res://assets/textures/terrain/ground_soil.png")
+const GRAVE_STONE_TEXTURE: Texture2D = preload("res://assets/textures/terrain/grave_stone.png")
+const CORRUPTION_GROUND_TEXTURE: Texture2D = preload("res://assets/textures/terrain/corruption_ground.png")
+
 var _materials: Dictionary[String, StandardMaterial3D] = {}
+var _terrain_materials: Dictionary[Texture2D, StandardMaterial3D] = {}
 
 
 func _ready() -> void:
@@ -25,7 +33,7 @@ func has_section(section_name: StringName) -> bool:
 
 
 func _build_deep_exit() -> void:
-	var section: Node3D = _create_section(&"DeepExit", Vector3(0.0, -0.2, 8.0), Vector3(9.0, 0.4, 8.0))
+	var section: Node3D = _create_section(&"DeepExit", Vector3(0.0, -0.2, 8.0), Vector3(9.0, 0.4, 8.0), GROUND_COLOR, GROUND_SOIL_TEXTURE)
 	_add_side_rails(section, Vector3(0.0, 0.0, 8.0), Vector2(9.0, 8.0))
 	_add_block(section, &"BrokenRearWall", Vector3(0.0, 0.75, 12.0), Vector3(9.0, 1.5, 0.5), WALL_COLOR)
 	_add_block(section, &"InvertedSteleLeft", Vector3(-2.4, 1.35, 8.2), Vector3(0.8, 2.7, 0.8), WALL_COLOR)
@@ -40,7 +48,7 @@ func _build_bridge() -> void:
 
 
 func _build_xumen_gate() -> void:
-	var section: Node3D = _create_section(&"XumenGate", Vector3(0.0, -0.2, -7.0), Vector3(10.0, 0.4, 6.0))
+	var section: Node3D = _create_section(&"XumenGate", Vector3(0.0, -0.2, -7.0), Vector3(10.0, 0.4, 6.0), GROUND_COLOR, GROUND_SOIL_TEXTURE)
 	_add_side_rails(section, Vector3(0.0, 0.0, -7.0), Vector2(10.0, 6.0))
 	_add_block(section, &"GatePillarLeft", Vector3(-3.1, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
 	_add_block(section, &"GatePillarRight", Vector3(3.1, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
@@ -49,7 +57,7 @@ func _build_xumen_gate() -> void:
 
 
 func _build_burial_road() -> void:
-	var section: Node3D = _create_section(&"BurialRoad", Vector3(0.0, -0.2, -17.0), Vector3(5.0, 0.4, 14.0), BRIDGE_COLOR)
+	var section: Node3D = _create_section(&"BurialRoad", Vector3(0.0, -0.2, -17.0), Vector3(5.0, 0.4, 14.0), BRIDGE_COLOR, GRAVE_STONE_TEXTURE)
 	_add_side_rails(section, Vector3(0.0, 0.0, -17.0), Vector2(5.0, 14.0))
 	_add_block(section, &"OverturnedCart", Vector3(-1.25, 0.45, -15.5), Vector3(1.8, 0.9, 1.0), CORRUPTION_COLOR)
 	_add_block(section, &"BurialStele", Vector3(1.5, 1.25, -20.0), Vector3(0.7, 2.5, 0.7), WALL_COLOR)
@@ -57,7 +65,7 @@ func _build_burial_road() -> void:
 
 
 func _build_seal_courtyard() -> void:
-	var section: Node3D = _create_section(&"SealCourtyard", Vector3(0.0, -0.2, -29.0), Vector3(12.0, 0.4, 10.0))
+	var section: Node3D = _create_section(&"SealCourtyard", Vector3(0.0, -0.2, -29.0), Vector3(12.0, 0.4, 10.0), GROUND_COLOR, GRAVE_STONE_TEXTURE)
 	_add_side_rails(section, Vector3(0.0, 0.0, -29.0), Vector2(12.0, 10.0))
 	for index: int in range(3):
 		var x_position: float = -3.0 + index * 3.0
@@ -68,12 +76,12 @@ func _build_seal_courtyard() -> void:
 
 
 func _build_boss_approach() -> void:
-	var section: Node3D = _create_section(&"GravePassage", Vector3(0.0, -0.2, -37.0), Vector3(3.5, 0.4, 6.0), BRIDGE_COLOR)
+	var section: Node3D = _create_section(&"GravePassage", Vector3(0.0, -0.2, -37.0), Vector3(3.5, 0.4, 6.0), BRIDGE_COLOR, GRAVE_STONE_TEXTURE)
 	_add_side_rails(section, Vector3(0.0, 0.0, -37.0), Vector2(3.5, 6.0))
 
 
 func _build_boss_arena() -> void:
-	var section: Node3D = _create_section(&"BossArena", Vector3(0.0, -0.2, -47.0), Vector3(16.0, 0.4, 14.0), CORRUPTION_COLOR)
+	var section: Node3D = _create_section(&"BossArena", Vector3(0.0, -0.2, -47.0), Vector3(16.0, 0.4, 14.0), CORRUPTION_COLOR, CORRUPTION_GROUND_TEXTURE)
 	_add_side_rails(section, Vector3(0.0, 0.0, -47.0), Vector2(16.0, 14.0))
 	_add_block(section, &"BurdenStoneLeft", Vector3(-5.2, 1.8, -47.5), Vector3(1.2, 3.6, 1.2), WALL_COLOR)
 	_add_block(section, &"BurdenStoneRight", Vector3(5.0, 2.4, -45.5), Vector3(1.4, 4.8, 1.4), WALL_COLOR)
@@ -85,12 +93,13 @@ func _create_section(
 	section_name: StringName,
 	floor_position: Vector3,
 	floor_size: Vector3,
-	color: Color = GROUND_COLOR
+	color: Color = GROUND_COLOR,
+	floor_texture: Texture2D = null
 ) -> Node3D:
 	var section: Node3D = Node3D.new()
 	section.name = section_name
 	add_child(section)
-	_add_block(section, &"Floor", floor_position, floor_size, color)
+	_add_block(section, &"Floor", floor_position, floor_size, color, floor_texture)
 	return section
 
 
@@ -101,7 +110,14 @@ func _add_side_rails(parent: Node3D, center: Vector3, floor_size: Vector2) -> vo
 	_add_block(parent, &"RailRight", center + Vector3(edge_x, 0.425, 0.0), rail_size, WALL_COLOR)
 
 
-func _add_block(parent: Node3D, block_name: StringName, center: Vector3, size: Vector3, color: Color) -> void:
+func _add_block(
+	parent: Node3D,
+	block_name: StringName,
+	center: Vector3,
+	size: Vector3,
+	color: Color,
+	texture: Texture2D = null
+) -> void:
 	var body: StaticBody3D = StaticBody3D.new()
 	body.name = block_name
 	body.position = center
@@ -111,7 +127,10 @@ func _add_block(parent: Node3D, block_name: StringName, center: Vector3, size: V
 	var box_mesh: BoxMesh = BoxMesh.new()
 	box_mesh.size = size
 	mesh_instance.mesh = box_mesh
-	mesh_instance.material_override = _get_material(color)
+	if texture != null:
+		mesh_instance.material_override = _get_terrain_material(texture, size)
+	else:
+		mesh_instance.material_override = _get_material(color)
 	body.add_child(mesh_instance)
 	var collision: CollisionShape3D = CollisionShape3D.new()
 	collision.name = &"CollisionShape3D"
@@ -141,4 +160,23 @@ func _get_material(color: Color) -> StandardMaterial3D:
 	material.albedo_color = color
 	material.roughness = 0.95
 	_materials[key] = material
+	return material
+
+
+## Returns a cached tiling material for a terrain texture; the UV scale is
+## derived from the block's world-space footprint so the pattern repeats at
+## a consistent real-world tile size instead of stretching per block.
+func _get_terrain_material(texture: Texture2D, size: Vector3) -> StandardMaterial3D:
+	if _terrain_materials.has(texture):
+		var cached: StandardMaterial3D = _terrain_materials[texture]
+		return cached
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_texture = texture
+	material.roughness = 0.95
+	material.uv1_scale = Vector3(
+		maxf(1.0, size.x / TERRAIN_TILE_METERS),
+		maxf(1.0, size.z / TERRAIN_TILE_METERS),
+		1.0
+	)
+	_terrain_materials[texture] = material
 	return material
