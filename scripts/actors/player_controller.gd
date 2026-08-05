@@ -149,7 +149,13 @@ static func resolve_facing_quadrant(
 	if camera_right.is_zero_approx() or camera_forward.is_zero_approx():
 		return &"front_right"
 	var is_right: bool = direction.dot(camera_right.normalized()) >= 0.0
-	var is_front: bool = direction.dot(camera_forward.normalized()) <= 0.0
+	## The threshold (instead of pure sign) keeps the sprite on a front-facing
+	## pose for near-lateral movement: with 4 3/4-angle sprites and no true
+	## "side" frame, pure horizontal motion (dot_forward ~0) would otherwise
+	## fall into a back-facing quadrant and the player would see the
+	## character's back (no face) while moving sideways, which reads as
+	## "facing the wrong way". Anything mostly toward the camera reads as front.
+	var is_front: bool = direction.dot(camera_forward.normalized()) < 0.15
 	if is_front:
 		return &"front_right" if is_right else &"front_left"
 	return &"back_right" if is_right else &"back_left"
