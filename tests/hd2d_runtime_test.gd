@@ -44,14 +44,28 @@ func _init() -> void:
 		_expect(player != null, "runtime contains the player")
 		_expect(camera != null, "runtime contains the fixed camera")
 		if player != null:
-			_expect(not player.use_3d_model, "runtime disables the visible 3D heroine")
-			_expect(player.use_validation_frame, "runtime enables the approved-frame slot")
+			_expect(
+				player.validation_frame_path.ends_with("wuyang_idle_front_right_validation_v1.png"),
+				"runtime uses the canonical black-haired validation frame"
+			)
 			_expect(player.get_node("Visual").visible, "runtime HD sprite is visible")
-			_expect(not player.get_node("Visual3D").visible, "runtime GLB source is hidden")
+			var readability_light := player.get_node_or_null("ReadabilityLight") as OmniLight3D
+			_expect(
+				readability_light != null
+					and readability_light.light_energy < 1.0
+					and readability_light.omni_range < 3.5,
+				"runtime separates the heroine with restrained local light"
+			)
 		if camera != null:
 			_expect(
 				camera.projection == Camera3D.PROJECTION_ORTHOGONAL,
 				"runtime camera uses orthographic projection"
+			)
+			_expect(
+				camera.position.is_equal_approx(Vector3(0.0, 12.0, 10.0))
+					and camera.basis.x.is_equal_approx(Vector3.RIGHT)
+					and is_equal_approx(camera.size, 10.5),
+				"runtime camera uses the high three-quarter overview"
 			)
 			_expect(camera.attributes != null, "runtime camera has diorama depth of field")
 	runtime.free()

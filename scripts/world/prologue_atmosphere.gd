@@ -65,7 +65,7 @@ func _process(delta: float) -> void:
 func _build_lanterns() -> void:
 	for entry: Array in LANTERNS:
 		var position: Vector3 = entry[0]
-		var energy: float = entry[1]
+		var energy: float = float(entry[1]) * 0.6
 		var phase: float = entry[2]
 		var lantern: Node3D = Node3D.new()
 		lantern.name = &"Lantern"
@@ -87,7 +87,7 @@ func _build_lanterns() -> void:
 		var light: OmniLight3D = OmniLight3D.new()
 		light.light_color = LANTERN_COLOR
 		light.light_energy = energy
-		light.omni_range = 9.5
+		light.omni_range = 5.8
 		light.omni_attenuation = 1.6
 		light.position = Vector3(0.0, 1.7, 0.0)
 		lantern.add_child(light)
@@ -183,7 +183,7 @@ func _box_mesh(size: Vector3, color: Color, emissive: bool = false) -> MeshInsta
 	if emissive:
 		material.emission_enabled = true
 		material.emission = color
-		material.emission_energy_multiplier = 1.55
+		material.emission_energy_multiplier = 1.05
 	mesh_instance.material_override = material
 	return mesh_instance
 
