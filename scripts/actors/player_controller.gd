@@ -19,6 +19,32 @@ const ELEMENT_DEFINITION_SCRIPT = preload("res://scripts/combat/element_definiti
 const EARTH_DEFINITION = preload("res://data/elements/earth.tres")
 const WATER_DEFINITION = preload("res://data/elements/water.tres")
 const DIRECTIONAL_SPRITE_FRAMES = preload("res://scripts/actors/directional_sprite_frames.gd")
+const WUYANG_DIRECTION_PATHS := {
+	&"screen_n": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_n_v1.png",
+	&"screen_ne": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_ne_v1.png",
+	&"screen_e": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_e_v1.png",
+	&"screen_se": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_se_v1.png",
+	&"screen_s": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_s_v1.png",
+	&"screen_sw": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_sw_v1.png",
+	&"screen_w": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_w_v1.png",
+	&"screen_nw": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_nw_v1.png",
+}
+
+## Procedural sprite motion. The eight directional atlases are single-frame
+## stills, so idle and walk are driven by transforming the sprite rather than
+## by stepping through frames. This keeps every direction perfectly consistent
+## and lets real frame animation drop in later without touching the controller.
+const IDLE_BOB_HEIGHT: float = 0.018
+const IDLE_BOB_HZ: float = 0.7
+const IDLE_BREATH: float = 0.022
+const WALK_BOB_HEIGHT: float = 0.055
+## One gait cycle covers two footfalls, so the sprite bounces twice per cycle.
+const WALK_CYCLE_HZ: float = 1.7
+const WALK_SQUASH: float = 0.085
+## How fast the pose crossfades between the idle and walk gaits.
+const GAIT_BLEND_SPEED: float = 9.0
+## How much the ground shadow tightens when the character is at full lift.
+const SHADOW_LIFT_SHRINK: float = 0.22
 
 @export var move_speed: float = 4.5
 @export var dodge_speed: float = 10.0
@@ -28,10 +54,9 @@ const DIRECTIONAL_SPRITE_FRAMES = preload("res://scripts/actors/directional_spri
 @export var attack_cooldown: float = 0.32
 @export var attack_range: float = 0.95
 @export var knockback_duration: float = 0.14
-@export var validation_frame: Texture2D
-@export_file("*.png") var validation_frame_path: String = ""
 
 @onready var visual: AnimatedSprite3D = $Visual
+@onready var ground_shadow: Sprite3D = $GroundShadow
 @onready var health_component: HEALTH_COMPONENT_SCRIPT = $HealthComponent
 @onready var hurtbox_component: HURTBOX_COMPONENT_SCRIPT = $HurtboxComponent
 @onready var attack_hitbox: HITBOX_COMPONENT_SCRIPT = $AttackHitbox
@@ -51,11 +76,18 @@ var _knockback_velocity: Vector3 = Vector3.ZERO
 var _knockback_time_remaining: float = 0.0
 var _base_visual_color: Color = Color.WHITE
 var _visual_tween: Tween
+var _gait_phase: float = 0.0
+var _gait_weight: float = 0.0
+var _visual_rest_position: Vector3 = Vector3.ZERO
+var _shadow_rest_scale: Vector3 = Vector3.ONE
 var _dead: bool = false
 
 
 func _ready() -> void:
 	_configure_directional_animations()
+	_visual_rest_position = visual.position
+	if ground_shadow != null:
+		_shadow_rest_scale = ground_shadow.scale
 	element_component.element_changed.connect(_on_element_changed)
 	attack_hitbox.hit_resolved.connect(_on_attack_hit_resolved)
 	hurtbox_component.hurt.connect(_on_hurt)
@@ -142,6 +174,42 @@ static func choose_dodge_direction(input_direction: Vector3, fallback: Vector3) 
 	return input_direction.normalized()
 
 
+func _process(delta: float) -> void:
+	_update_procedural_pose(delta)
+
+
+## Crossfades between a slow breathing bob and a two-step walk bounce, then
+## applies the result as a vertical offset plus squash-and-stretch. Driven by
+## the actual planar velocity, so dodging and knockback animate too.
+func _update_procedural_pose(delta: float) -> void:
+	if visual == null or _dead:
+		return
+	var planar_speed: float = Vector2(velocity.x, velocity.z).length()
+	var target_weight: float = clampf(planar_speed / maxf(0.01, move_speed), 0.0, 1.0)
+	_gait_weight = move_toward(_gait_weight, target_weight, GAIT_BLEND_SPEED * delta)
+	var cycle_hz: float = lerpf(IDLE_BOB_HZ, WALK_CYCLE_HZ, _gait_weight)
+	_gait_phase = fmod(_gait_phase + TAU * cycle_hz * delta, TAU)
+
+	## abs(sin) peaks twice per cycle, which reads as one rise per footfall,
+	## while the plain sine gives the idle a single slow breath per cycle.
+	var bounce: float = absf(sin(_gait_phase))
+	var breath: float = sin(_gait_phase) * 0.5 + 0.5
+	var lift: float = lerpf(breath * IDLE_BOB_HEIGHT, bounce * WALK_BOB_HEIGHT, _gait_weight)
+	visual.position = _visual_rest_position + Vector3(0.0, lift, 0.0)
+
+	## Stretch at the top of the bounce, squash through the footfall. The width
+	## moves opposite the height so the sprite keeps roughly its silhouette area.
+	var squash: float = lerpf(
+		breath * IDLE_BREATH, (bounce - 0.5) * 2.0 * WALK_SQUASH, _gait_weight
+	)
+	visual.scale = Vector3(1.0 - squash * 0.6, 1.0 + squash, 1.0)
+
+	if ground_shadow != null:
+		## The shadow tightens as the character leaves the ground.
+		var lift_ratio: float = clampf(lift / WALK_BOB_HEIGHT, 0.0, 1.0)
+		ground_shadow.scale = _shadow_rest_scale * (1.0 - lift_ratio * SHADOW_LIFT_SHRINK)
+
+
 func animation_for_movement(direction: Vector3) -> StringName:
 	return &"idle" if direction.is_zero_approx() else &"walk"
 
@@ -172,25 +240,19 @@ static func resolve_screen_direction(
 
 
 func _configure_directional_animations() -> void:
-	if validation_frame == null:
-		validation_frame = _load_validation_frame()
-	if validation_frame == null:
-		push_error("Player is missing the canonical HD validation frame")
-		return
-	visual.sprite_frames = DIRECTIONAL_SPRITE_FRAMES.build_validation_frame(
-		validation_frame
-	)
-	_set_visual_shader_texture(validation_frame)
+	var direction_textures := _load_direction_textures()
+	visual.sprite_frames = DIRECTIONAL_SPRITE_FRAMES.build_static(direction_textures)
+	_set_visual_shader_texture(direction_textures[&"screen_s"])
 	visual.play(&"idle_screen_s")
 
 
-func _load_validation_frame() -> Texture2D:
-	if validation_frame_path.is_empty() or not FileAccess.file_exists(validation_frame_path):
-		return null
-	var image := Image.load_from_file(validation_frame_path)
-	if image == null or image.is_empty():
-		return null
-	return ImageTexture.create_from_image(image)
+func _load_direction_textures() -> Dictionary:
+	var textures: Dictionary = {}
+	for direction: StringName in WUYANG_DIRECTION_PATHS:
+		var image := Image.load_from_file(WUYANG_DIRECTION_PATHS[direction])
+		assert(image != null and not image.is_empty(), "Missing Wuyang texture for %s" % direction)
+		textures[direction] = ImageTexture.create_from_image(image)
+	return textures
 
 
 func _set_visual_shader_texture(texture: Texture2D) -> void:

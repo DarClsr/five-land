@@ -51,14 +51,15 @@ func _init() -> void:
 		_expect(player_instance is CharacterBody3D, "player scene uses CharacterBody3D")
 		_expect(player_instance.get_node_or_null("CollisionShape3D") != null, "player has collision")
 		var visual := player_instance.get_node_or_null("Visual") as AnimatedSprite3D
-		_expect(visual != null, "player has HD-2D visual")
+		_expect(visual != null, "player has Q pixel visual")
 		if visual:
 			player_instance.set("visual", visual)
 			player_instance.call(&"_configure_directional_animations")
 			_expect(visual.sprite_frames.get_frame_count("idle_screen_s") == 1, "validation idle uses one frame")
 			_expect(visual.sprite_frames.get_frame_count("walk_screen_e") == 1, "validation walk uses one frame")
-			_expect(is_equal_approx(visual.position.y, 1.02), "player visual feet align with ground")
-			_expect(is_equal_approx(visual.pixel_size, 0.00155), "HD validation frame reads at gameplay scale")
+			_expect(is_equal_approx(visual.position.y, 0.93), "player visual feet align with ground")
+			_expect(is_equal_approx(visual.pixel_size, 0.0165), "Q pixel frame reads at gameplay scale")
+			_expect(visual.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST, "Q pixel art uses nearest filtering")
 			_expect(
 				visual.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
 				"player uses only the authored ground shadow"
@@ -69,8 +70,8 @@ func _init() -> void:
 			var shader_material := visual.material_override as ShaderMaterial
 			var walk_texture := shader_material.get_shader_parameter(&"albedo_texture") as Texture2D
 			_expect(
-				walk_texture.get_size() == Vector2(1089, 1444),
-				"walk preview keeps the HD validation texture"
+				walk_texture.get_size() == Vector2(128, 128),
+				"walk preview uses the east Q pixel direction"
 			)
 			player_instance.call(&"_update_movement_animation", Vector3.ZERO)
 			_expect(visual.animation == &"idle_screen_e", "keeps east facing while stopped")
