@@ -1,6 +1,6 @@
 # Five Land
 
-一款采用“风格化低多边形 3D 场景 + 高清八方向 2D 角色”的东方黑暗奇幻动作 RPG。
+一款采用“风格化低多边形 3D 场景 + 细节 Q 版像素八方向角色”的东方黑暗奇幻动作 RPG。
 
 玩家将扮演从深渊归来的异类女孩。她是五行本源碎片的容器，将在探索五行天地、追查腐败之谜的过程中，决定世界走向修复还是毁灭。
 
@@ -19,8 +19,8 @@
 - [序章场景资产清单](docs/xumen-asset-list.md)
 - [序章台词稿](docs/xumen-script.md)
 - [五行服装、武器、解锁与套装共鸣](docs/five-element-equipment.md)
-- [角色高清素材合同](docs/art/character-asset-contract.md)
-- [无央高清八方向渲染规范](docs/art/wuyang-hd2d-render-contract.md)
+- [角色素材合同](docs/art/character-asset-contract.md)
+- [无央 Q 版像素八方向渲染规范](docs/art/wuyang-hd2d-render-contract.md)
 - [素材生成提示词手册](docs/art/asset-prompt-guide.md)
 - [术语表](docs/glossary.md)
 - [世界年表](docs/timeline.md)

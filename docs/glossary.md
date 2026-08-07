@@ -78,8 +78,8 @@
 
 | 术语 | 定义 | 相关文档 |
 |---|---|---|
-| HD-2D | 本项目的组合式画面方案：风格化 3D 场景、高清 2D 角色、固定斜俯视相机与统一光影；不要求像素美术 | world-map-and-art / character-asset-contract |
-| 高清方向帧 | 在固定斜俯视相机下绘制的非像素 RGBA 角色帧；正式角色至少包含屏幕八方向 | character-asset-contract / wuyang-hd2d-render-contract |
+| HD-2D | 本项目的组合式画面方案：风格化 3D 场景、Q 版像素 2D 角色、固定斜俯视相机与统一光影 | world-map-and-art / character-asset-contract |
+| 像素方向帧 | 在固定斜俯视相机下绘制的 128px RGBA 像素角色帧；正式角色至少包含屏幕八方向 | character-asset-contract / wuyang-hd2d-render-contract |
 | 风格化低多边形 3D | 以简化几何、清晰轮廓和手绘材质构成的场景表现，不追求照片扫描式写实 | world-map-and-art |
 | 脚底锚点 | 所有方向与动作帧共享的双脚中点基线，用于防止移动和换装时角色跳动 | character-asset-contract |
 | 视觉代理 | 不直接显示的简化 3D 体，用于碰撞、接触阴影、长阴影或遮挡计算，不作为角色最终美术 | wuyang-hd2d-render-contract |

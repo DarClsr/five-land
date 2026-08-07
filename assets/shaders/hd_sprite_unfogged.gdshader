@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_prepass_alpha;
 
-uniform sampler2D albedo_texture : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D albedo_texture : source_color, filter_nearest, repeat_disable;
 uniform float alpha_scissor_threshold : hint_range(0.0, 1.0, 0.01) = 0.1;
 uniform vec4 outline_color : source_color = vec4(0.04, 0.035, 0.03, 0.9);
 uniform float outline_width : hint_range(0.5, 4.0, 0.25) = 1.5;

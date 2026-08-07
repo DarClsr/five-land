@@ -51,12 +51,14 @@ static func build(idle_atlas: Texture2D, walk_atlas: Texture2D) -> SpriteFrames:
 	return sprite_frames
 
 
-static func build_validation_frame(texture: Texture2D) -> SpriteFrames:
-	assert(texture != null, "The validation frame texture is required")
+static func build_static(direction_textures: Dictionary) -> SpriteFrames:
+	assert(direction_textures.size() == DIRECTIONS.size(), "All eight directions are required")
 	var sprite_frames := SpriteFrames.new()
 	sprite_frames.remove_animation(&"default")
 	for motion: StringName in [&"idle", &"walk"]:
 		for direction: StringName in DIRECTIONS:
+			var texture := direction_textures.get(direction) as Texture2D
+			assert(texture != null, "Missing texture for %s" % direction)
 			var animation_name := StringName("%s_%s" % [motion, direction])
 			sprite_frames.add_animation(animation_name)
 			sprite_frames.set_animation_speed(animation_name, FPS)

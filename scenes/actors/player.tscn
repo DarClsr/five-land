@@ -10,11 +10,11 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_player_hd"]
 shader = ExtResource("6_hd_sprite_shader")
 shader_parameter/alpha_scissor_threshold = 0.1
-shader_parameter/outline_color = Color(0.38, 0.48, 0.5, 0.36)
+shader_parameter/outline_color = Color(0.38, 0.48, 0.5, 0)
 shader_parameter/outline_width = 0.75
-shader_parameter/character_brightness = 1.16
-shader_parameter/character_saturation = 1.18
-shader_parameter/vermilion_boost = 0.1
+shader_parameter/character_brightness = 1.08
+shader_parameter/character_saturation = 1.08
+shader_parameter/vermilion_boost = 0.05
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 radius = 0.35
@@ -36,7 +36,6 @@ fill_to = 0.5
 collision_layer = 32
 collision_mask = 1
 script = ExtResource("1_controller")
-validation_frame_path = "res://assets/characters/wuyang/hd2d/wuyang_idle_front_right_validation_v1.png"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.9, 0)
@@ -45,12 +44,12 @@ shape = SubResource("CapsuleShape3D_player")
 [node name="Visual" type="AnimatedSprite3D" parent="."]
 visible = true
 material_override = SubResource("ShaderMaterial_player_hd")
-position = Vector3(0, 1.02, 0)
-pixel_size = 0.00155
+position = Vector3(0, 0.93, 0)
+pixel_size = 0.0165
 billboard = 2
 cast_shadow = 0
 alpha_cut = 1
-texture_filter = 2
+texture_filter = 0
 
 [node name="GroundShadow" type="Sprite3D" parent="."]
 position = Vector3(0, 0.01, 0)
