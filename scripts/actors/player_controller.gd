@@ -19,6 +19,7 @@ const ELEMENT_DEFINITION_SCRIPT = preload("res://scripts/combat/element_definiti
 const EARTH_DEFINITION = preload("res://data/elements/earth.tres")
 const WATER_DEFINITION = preload("res://data/elements/water.tres")
 const DIRECTIONAL_SPRITE_FRAMES = preload("res://scripts/actors/directional_sprite_frames.gd")
+const WUYANG_WALK_ATLAS: Texture2D = preload("res://assets/characters/wuyang/pixel/wuyang_walk_8x8_v1.png")
 const WUYANG_DIRECTION_PATHS := {
 	&"screen_n": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_n_v1.png",
 	&"screen_ne": "res://assets/characters/wuyang/pixel/wuyang_idle_screen_ne_v1.png",
@@ -45,6 +46,10 @@ const WALK_SQUASH: float = 0.085
 const GAIT_BLEND_SPEED: float = 9.0
 ## How much the ground shadow tightens when the character is at full lift.
 const SHADOW_LIFT_SHRINK: float = 0.22
+## The source atlas has a deliberately chunky Q-pixel silhouette. Compressing
+## only X keeps the heroine tall and readable without letting the twin blades
+## dominate the corridor width.
+const VISUAL_BASE_SCALE: Vector3 = Vector3(0.86, 1.0, 1.0)
 
 @export var move_speed: float = 4.5
 @export var dodge_speed: float = 10.0
@@ -80,11 +85,13 @@ var _gait_phase: float = 0.0
 var _gait_weight: float = 0.0
 var _visual_rest_position: Vector3 = Vector3.ZERO
 var _shadow_rest_scale: Vector3 = Vector3.ONE
+var _weapon_feedback_time: float = 0.0
 var _dead: bool = false
 
 
 func _ready() -> void:
 	_configure_directional_animations()
+	visual.frame_changed.connect(_sync_visual_shader_frame)
 	_visual_rest_position = visual.position
 	if ground_shadow != null:
 		_shadow_rest_scale = ground_shadow.scale
@@ -108,6 +115,8 @@ func _exit_tree() -> void:
 		hurtbox_component.hurt.disconnect(_on_hurt)
 	if health_component != null and health_component.died.is_connected(_on_died):
 		health_component.died.disconnect(_on_died)
+	if visual != null and visual.frame_changed.is_connected(_sync_visual_shader_frame):
+		visual.frame_changed.disconnect(_sync_visual_shader_frame)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -176,6 +185,11 @@ static func choose_dodge_direction(input_direction: Vector3, fallback: Vector3) 
 
 func _process(delta: float) -> void:
 	_update_procedural_pose(delta)
+	_weapon_feedback_time = maxf(0.0, _weapon_feedback_time - delta)
+	var shader_material := visual.material_override as ShaderMaterial
+	if shader_material != null:
+		var feedback_ratio: float = _weapon_feedback_time / 0.3
+		shader_material.set_shader_parameter(&"weapon_attack_boost", 1.0 + feedback_ratio * 2.0)
 
 
 ## Crossfades between a slow breathing bob and a two-step walk bounce, then
@@ -202,7 +216,7 @@ func _update_procedural_pose(delta: float) -> void:
 	var squash: float = lerpf(
 		breath * IDLE_BREATH, (bounce - 0.5) * 2.0 * WALK_SQUASH, _gait_weight
 	)
-	visual.scale = Vector3(1.0 - squash * 0.6, 1.0 + squash, 1.0)
+	visual.scale = VISUAL_BASE_SCALE * Vector3(1.0 - squash * 0.6, 1.0 + squash, 1.0)
 
 	if ground_shadow != null:
 		## The shadow tightens as the character leaves the ground.
@@ -241,7 +255,9 @@ static func resolve_screen_direction(
 
 func _configure_directional_animations() -> void:
 	var direction_textures := _load_direction_textures()
-	visual.sprite_frames = DIRECTIONAL_SPRITE_FRAMES.build_static(direction_textures)
+	visual.sprite_frames = DIRECTIONAL_SPRITE_FRAMES.build_with_walk(
+		direction_textures, WUYANG_WALK_ATLAS
+	)
 	_set_visual_shader_texture(direction_textures[&"screen_s"])
 	visual.play(&"idle_screen_s")
 
@@ -249,9 +265,9 @@ func _configure_directional_animations() -> void:
 func _load_direction_textures() -> Dictionary:
 	var textures: Dictionary = {}
 	for direction: StringName in WUYANG_DIRECTION_PATHS:
-		var image := Image.load_from_file(WUYANG_DIRECTION_PATHS[direction])
-		assert(image != null and not image.is_empty(), "Missing Wuyang texture for %s" % direction)
-		textures[direction] = ImageTexture.create_from_image(image)
+		var texture := load(WUYANG_DIRECTION_PATHS[direction]) as Texture2D
+		assert(texture != null, "Missing Wuyang texture for %s" % direction)
+		textures[direction] = texture
 	return textures
 
 
@@ -261,6 +277,15 @@ func _set_visual_shader_texture(texture: Texture2D) -> void:
 		shader_material.set_shader_parameter(&"albedo_texture", texture)
 
 
+func _sync_visual_shader_frame() -> void:
+	var frame_texture := visual.sprite_frames.get_frame_texture(visual.animation, visual.frame)
+	if frame_texture is AtlasTexture:
+		var atlas_texture := frame_texture as AtlasTexture
+		_set_visual_shader_texture(atlas_texture.atlas)
+	elif frame_texture != null:
+		_set_visual_shader_texture(frame_texture)
+
+
 func _update_movement_animation(direction: Vector3) -> void:
 	var next_animation := StringName(
 		"%s_%s" % [animation_for_movement(direction), facing_screen_direction]
@@ -268,11 +293,7 @@ func _update_movement_animation(direction: Vector3) -> void:
 	if visual.animation == next_animation:
 		return
 	visual.play(next_animation)
-	var frame_texture := visual.sprite_frames.get_frame_texture(next_animation, 0)
-	if frame_texture is AtlasTexture:
-		_set_visual_shader_texture((frame_texture as AtlasTexture).atlas)
-	elif frame_texture != null:
-		_set_visual_shader_texture(frame_texture)
+	_sync_visual_shader_frame()
 
 
 func try_start_dodge(input_direction: Vector3) -> bool:
@@ -307,6 +328,7 @@ func try_start_attack(input_direction: Vector3) -> bool:
 	attack_hitbox.position = attack_direction * attack_range
 	attack_hitbox.set_active(true)
 	attack_time_remaining = attack_duration
+	_weapon_feedback_time = 0.3
 	attack_cooldown_remaining = attack_cooldown
 	return true
 
@@ -323,6 +345,31 @@ func is_invulnerable() -> bool:
 
 func is_dead() -> bool:
 	return _dead
+
+
+func reset_runtime_state(spawn_transform: Transform3D) -> void:
+	global_transform = spawn_transform
+	_dead = false
+	velocity = Vector3.ZERO
+	_attack_requested = false
+	_dodge_requested = false
+	_stance_switch_requested = false
+	attack_time_remaining = 0.0
+	attack_cooldown_remaining = 0.0
+	dodge_time_remaining = 0.0
+	dodge_cooldown_remaining = 0.0
+	_knockback_time_remaining = 0.0
+	_weapon_feedback_time = 0.0
+	attack_hitbox.set_active(false)
+	hurtbox_component.reset()
+	health_component.reset_health()
+	visual.position = _visual_rest_position
+	visual.scale = VISUAL_BASE_SCALE
+	visual.modulate = _base_visual_color
+	if ground_shadow != null:
+		ground_shadow.scale = _shadow_rest_scale
+	set_process(true)
+	set_physics_process(true)
 
 
 func _on_died() -> void:

@@ -8,6 +8,17 @@ const TRAINING_ENEMY_SCRIPT = preload("res://scripts/actors/training_enemy.gd")
 const ELEMENT_DEFINITION_SCRIPT = preload("res://scripts/combat/element_definition.gd")
 const FOLLOW_CAMERA_RIG_SCRIPT = preload("res://scripts/world/follow_camera_rig.gd")
 
+## Bounds apply to the camera rig's X/Z centre, not to player collision. They
+## keep the orthographic frame inside authored canyon walls while allowing the
+## player to traverse each complete gameplay section.
+const CAMERA_BOUNDS: Dictionary[StringName, Rect2] = {
+	&"DeepExit": Rect2(-1.0, -4.2, 2.0, 13.2),
+	&"XumenGate": Rect2(-0.8, -11.0, 1.6, 7.0),
+	&"BurialRoad": Rect2(-0.3, -24.5, 0.6, 14.5),
+	&"SealCourtyard": Rect2(-1.7, -40.5, 3.4, 17.0),
+	&"BossArena": Rect2(-3.2, -50.5, 6.4, 11.0),
+}
+
 const ZONE_TITLES: Dictionary = {
 	&"DeepExit": "归墟出口",
 	&"XumenGate": "墟门",
@@ -36,9 +47,14 @@ const ZONE_OBJECTIVES: Dictionary = {
 
 var _current_zone: StringName = &"DeepExit"
 var _trigger_callbacks: Dictionary[Area3D, Callable] = {}
+var _player_spawn_transform: Transform3D
+var _enemy_spawn_transform: Transform3D
 
 
 func _ready() -> void:
+	_player_spawn_transform = player.global_transform
+	_enemy_spawn_transform = burial_road_enemy.global_transform
+	camera_rig.set_movement_bounds(CAMERA_BOUNDS[&"DeepExit"])
 	camera_rig.set_target(player)
 	burial_road_enemy.set_target(player)
 	player.health_component.health_changed.connect(_on_player_health_changed)
@@ -46,6 +62,7 @@ func _ready() -> void:
 	player.attack_landed.connect(_on_attack_landed)
 	player.died.connect(_on_player_died)
 	burial_road_enemy.died.connect(_on_burial_road_enemy_died)
+	burial_road_enemy.state_changed.connect(_on_burial_road_enemy_state_changed)
 	hit_stop_timer.timeout.connect(_on_hit_stop_finished)
 	_connect_zone_triggers()
 	_on_player_health_changed(player.health_component.current_health, player.health_component.max_health)
@@ -56,31 +73,14 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	if get_tree() != null and get_tree().paused:
-		get_tree().paused = false
-	for trigger: Area3D in _trigger_callbacks:
-		var callback: Callable = _trigger_callbacks[trigger]
-		if is_instance_valid(trigger) and trigger.body_entered.is_connected(callback):
-			trigger.body_entered.disconnect(callback)
+	_set_combat_frozen(false)
 	_trigger_callbacks.clear()
-	if player != null:
-		if player.health_component.health_changed.is_connected(_on_player_health_changed):
-			player.health_component.health_changed.disconnect(_on_player_health_changed)
-		if player.stance_changed.is_connected(_on_stance_changed):
-			player.stance_changed.disconnect(_on_stance_changed)
-		if player.attack_landed.is_connected(_on_attack_landed):
-			player.attack_landed.disconnect(_on_attack_landed)
-		if player.died.is_connected(_on_player_died):
-			player.died.disconnect(_on_player_died)
-	if burial_road_enemy != null and burial_road_enemy.died.is_connected(_on_burial_road_enemy_died):
-		burial_road_enemy.died.disconnect(_on_burial_road_enemy_died)
-	if hit_stop_timer != null and hit_stop_timer.timeout.is_connected(_on_hit_stop_finished):
-		hit_stop_timer.timeout.disconnect(_on_hit_stop_finished)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"retry"):
-		get_tree().reload_current_scene()
+		_reset_encounter()
+		get_viewport().set_input_as_handled()
 
 
 func get_current_zone() -> StringName:
@@ -107,6 +107,10 @@ func _update_zone(zone_name: StringName) -> void:
 	if not ZONE_TITLES.has(zone_name) or not ZONE_OBJECTIVES.has(zone_name):
 		return
 	_current_zone = zone_name
+	if CAMERA_BOUNDS.has(zone_name):
+		camera_rig.set_movement_bounds(CAMERA_BOUNDS[zone_name])
+	if zone_name == &"BossArena":
+		camera_rig.enter_combat()
 	var display_name: String = ZONE_TITLES[zone_name]
 	var objective: String = ZONE_OBJECTIVES[zone_name]
 	zone_label.text = "区域：%s" % display_name
@@ -130,20 +134,54 @@ func _on_attack_landed(
 	_attacker_element: int,
 	_defender_element: int
 ) -> void:
-	if get_tree().paused:
-		return
-	get_tree().paused = true
+	_set_combat_frozen(true)
 	hit_stop_timer.start(0.045)
 
 
 func _on_hit_stop_finished() -> void:
-	get_tree().paused = false
+	_set_combat_frozen(false)
+
+
+func _set_combat_frozen(frozen: bool) -> void:
+	for actor: Node in [player, burial_road_enemy]:
+		if not is_instance_valid(actor):
+			continue
+		actor.set_process(not frozen)
+		actor.set_physics_process(not frozen)
+
+
+func _reset_encounter() -> void:
+	hit_stop_timer.stop()
+	_set_combat_frozen(false)
+	player.reset_runtime_state(_player_spawn_transform)
+	burial_road_enemy.reset_runtime_state(_enemy_spawn_transform)
+	burial_road_enemy.set_target(player)
+	_update_zone(&"DeepExit")
+	camera_rig.exit_combat()
+	## Teleporting out of the boss trigger can deliver its stale overlap signal
+	## during this tick. Re-assert the destination bounds before snapping.
+	camera_rig.set_movement_bounds(CAMERA_BOUNDS[&"DeepExit"])
+	camera_rig.set_target(player, false)
+	camera_rig.snap_to_target()
+	status_label.text = "WASD 移动｜Q 架势｜空格闪避｜J 攻击"
 
 
 func _on_player_died() -> void:
 	status_label.text = "无央倒下了。按 R 从归墟出口重新开始"
 
 
+func _on_burial_road_enemy_state_changed(_previous: int, current: int) -> void:
+	if current in [
+		TRAINING_ENEMY_SCRIPT.State.CHASE,
+		TRAINING_ENEMY_SCRIPT.State.ATTACK,
+		TRAINING_ENEMY_SCRIPT.State.HURT,
+	]:
+		camera_rig.enter_combat()
+	elif current == TRAINING_ENEMY_SCRIPT.State.IDLE and _current_zone != &"BossArena":
+		camera_rig.exit_combat()
+
+
 func _on_burial_road_enemy_died() -> void:
+	camera_rig.exit_combat()
 	if _current_zone == &"BurialRoad":
 		objective_label.text = "目标：道路已清理，前往封印庭院"

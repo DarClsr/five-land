@@ -56,9 +56,10 @@ func _init() -> void:
 			player_instance.set("visual", visual)
 			player_instance.call(&"_configure_directional_animations")
 			_expect(visual.sprite_frames.get_frame_count("idle_screen_s") == 1, "validation idle uses one frame")
-			_expect(visual.sprite_frames.get_frame_count("walk_screen_e") == 1, "validation walk uses one frame")
+			_expect(visual.sprite_frames.get_frame_count("walk_screen_e") == 8, "validation walk uses eight frames")
 			_expect(is_equal_approx(visual.position.y, 0.93), "player visual feet align with ground")
 			_expect(is_equal_approx(visual.pixel_size, 0.0165), "Q pixel frame reads at gameplay scale")
+			_expect(visual.scale.is_equal_approx(Vector3(0.86, 1.0, 1.0)), "Q pixel silhouette is narrowed without losing height")
 			_expect(visual.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST, "Q pixel art uses nearest filtering")
 			_expect(
 				visual.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
@@ -70,8 +71,8 @@ func _init() -> void:
 			var shader_material := visual.material_override as ShaderMaterial
 			var walk_texture := shader_material.get_shader_parameter(&"albedo_texture") as Texture2D
 			_expect(
-				walk_texture.get_size() == Vector2(128, 128),
-				"walk preview uses the east Q pixel direction"
+				walk_texture.get_size() == Vector2(1024, 1024),
+				"walk preview samples the eight-direction Q pixel atlas"
 			)
 			player_instance.call(&"_update_movement_animation", Vector3.ZERO)
 			_expect(visual.animation == &"idle_screen_e", "keeps east facing while stopped")

@@ -31,9 +31,9 @@ const WATER_DEFINITION = preload("res://data/elements/water.tres")
 @onready var contact_hitbox: HITBOX_COMPONENT_SCRIPT = $ContactHitbox
 @onready var element_component: ELEMENT_COMPONENT_SCRIPT = $ElementComponent
 @onready var attack_tell: Sprite3D = $AttackTell
-@onready var health_viewport: SubViewport = $EnemyHealthViewport
-@onready var health_bar: ProgressBar = $EnemyHealthViewport/HealthBar
 @onready var health_bar_sprite: Sprite3D = $EnemyHealthSprite
+
+var _health_bar_material: ShaderMaterial
 
 var _target: Node3D
 var _state: State = State.IDLE
@@ -57,7 +57,8 @@ func _ready() -> void:
 	hurtbox_component.hurt.connect(_on_hurt)
 	_base_visual_color = WATER_DEFINITION.color.lightened(0.12)
 	visual.modulate = _base_visual_color
-	health_bar_sprite.texture = health_viewport.get_texture()
+	_health_bar_material = (health_bar_sprite.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+	health_bar_sprite.material_override = _health_bar_material
 	_on_health_changed(health_component.current_health, health_component.max_health)
 	_enter_state(State.IDLE)
 
@@ -105,6 +106,24 @@ func get_attack_phase() -> AttackPhase:
 
 func is_dead() -> bool:
 	return _state == State.DEAD
+
+
+func reset_runtime_state(spawn_transform: Transform3D) -> void:
+	global_transform = spawn_transform
+	_state = State.IDLE
+	_attack_phase = AttackPhase.WINDUP
+	_state_time_remaining = 0.0
+	_knockback_velocity = Vector3.ZERO
+	velocity = Vector3.ZERO
+	contact_hitbox.set_active(false)
+	attack_tell.visible = false
+	hurtbox_component.reset()
+	body_collision.set_deferred(&"disabled", false)
+	health_component.reset_health()
+	health_bar_sprite.visible = true
+	visual.modulate = _base_visual_color
+	set_process(true)
+	set_physics_process(true)
 
 
 func _tick_idle() -> void:
@@ -232,8 +251,8 @@ func _stop_moving() -> void:
 
 
 func _on_health_changed(current: int, maximum: int) -> void:
-	health_bar.max_value = maximum
-	health_bar.value = current
+	if _health_bar_material != null:
+		_health_bar_material.set_shader_parameter(&"progress", clampf(float(current) / maxf(float(maximum), 1.0), 0.0, 1.0))
 
 
 func _on_hurt(_damage: int, hit_direction: Vector3, knockback_force: float) -> void:

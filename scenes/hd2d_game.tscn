@@ -5,11 +5,16 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ink_wash"]
 shader = ExtResource("2_ink_shader")
-shader_parameter/desaturation = 0.46
-shader_parameter/ink_strength = 0.3
-shader_parameter/wash_softness = 0.08
-shader_parameter/paper_grain = 0.016
+shader_parameter/desaturation = 0.14
+shader_parameter/ink_strength = 0.18
+shader_parameter/wash_softness = 0.06
+shader_parameter/paper_grain = 0.012
 shader_parameter/vermilion_keep = 1.0
+shader_parameter/posterize_steps = 3.0
+shader_parameter/posterize_strength = 0.14
+shader_parameter/vignette_strength = 0.26
+shader_parameter/vignette_inner = 0.32
+shader_parameter/vignette_outer = 1.22
 shader_parameter/paper_tint = Color(0.92, 0.9, 0.82, 1)
 shader_parameter/ink_tint = Color(0.09, 0.105, 0.105, 1)
 

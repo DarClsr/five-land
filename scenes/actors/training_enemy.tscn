@@ -1,10 +1,11 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/actors/training_enemy.gd" id="1_enemy"]
 [ext_resource type="PackedScene" path="res://scenes/components/health_component.tscn" id="2_health"]
 [ext_resource type="PackedScene" path="res://scenes/components/hurtbox_component.tscn" id="3_hurtbox"]
 [ext_resource type="PackedScene" path="res://scenes/components/hitbox_component.tscn" id="4_hitbox"]
 [ext_resource type="PackedScene" path="res://scenes/components/element_component.tscn" id="5_element"]
+[ext_resource type="Shader" path="res://assets/shaders/world_health_bar.gdshader" id="6_health_bar_shader"]
 
 [sub_resource type="Gradient" id="Gradient_enemy"]
 offsets = PackedFloat32Array(0, 0.35, 0.75, 1)
@@ -27,6 +28,19 @@ colors = PackedColorArray(1, 0.9, 0.2, 0, 1, 0.45, 0.08, 0.65, 1, 0.12, 0.04, 0)
 gradient = SubResource("Gradient_attack_tell")
 width = 28
 height = 10
+
+[sub_resource type="Gradient" id="Gradient_health_bar"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_health_bar"]
+gradient = SubResource("Gradient_health_bar")
+width = 32
+height = 8
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_health_bar"]
+resource_local_to_scene = true
+shader = ExtResource("6_health_bar_shader")
+shader_parameter/progress = 1.0
 
 [node name="TrainingEnemy" type="CharacterBody3D"]
 script = ExtResource("1_enemy")
@@ -66,27 +80,10 @@ billboard = 1
 texture_filter = 1
 texture = SubResource("GradientTexture2D_attack_tell")
 
-[node name="EnemyHealthViewport" type="SubViewport" parent="."]
-transparent_bg = true
-size = Vector2i(128, 18)
-render_target_update_mode = 4
-
-[node name="HealthBar" type="ProgressBar" parent="EnemyHealthViewport"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 0)
-theme_override_colors/font_shadow_color = Color(1, 1, 1, 0)
-max_value = 30.0
-value = 30.0
-show_percentage = false
-
 [node name="EnemyHealthSprite" type="Sprite3D" parent="."]
 position = Vector3(0, 2.15, 0)
-pixel_size = 0.008
+pixel_size = 0.028
 billboard = 1
-texture_filter = 1
+texture_filter = 0
+texture = SubResource("GradientTexture2D_health_bar")
+material_override = SubResource("ShaderMaterial_health_bar")

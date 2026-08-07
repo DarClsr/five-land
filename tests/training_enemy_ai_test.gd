@@ -64,7 +64,15 @@ func _run_test() -> void:
 	for _frame: int in range(3):
 		await physics_frame
 	_expect(enemy.position.x > knockback_start.x, "hurt state applies knockback movement")
-	_expect(enemy.health_bar.value == enemy.health_component.current_health, "world health bar tracks health")
+	var health_material := enemy.health_bar_sprite.material_override as ShaderMaterial
+	_expect(enemy.get_node_or_null("EnemyHealthViewport") == null, "enemy health bar no longer allocates a SubViewport")
+	_expect(
+		is_equal_approx(
+			float(health_material.get_shader_parameter(&"progress")),
+			float(enemy.health_component.current_health) / float(enemy.health_component.max_health)
+		),
+		"shader world health bar tracks health"
+	)
 
 	enemy.health_component.take_damage(1000)
 	_expect(enemy.get_state() == TrainingEnemyScript.State.DEAD, "lethal damage enters dead state")
