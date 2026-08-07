@@ -44,11 +44,15 @@ func _init() -> void:
 		_expect(player != null, "runtime contains the player")
 		_expect(camera != null, "runtime contains the fixed camera")
 		if player != null:
+			var visual := player.get_node("Visual") as AnimatedSprite3D
+			player.set("visual", visual)
+			player.call(&"_configure_directional_animations")
+			_expect(visual.visible, "runtime Q pixel sprite is visible")
 			_expect(
-				player.validation_frame_path.ends_with("wuyang_idle_front_right_validation_v1.png"),
-				"runtime uses the canonical black-haired validation frame"
+				visual.sprite_frames.get_frame_texture(&"idle_screen_s", 0).get_size()
+					== Vector2(128, 128),
+				"runtime uses the canonical 128px Q pixel front frame"
 			)
-			_expect(player.get_node("Visual").visible, "runtime HD sprite is visible")
 			var readability_light := player.get_node_or_null("ReadabilityLight") as OmniLight3D
 			_expect(
 				readability_light != null
@@ -64,8 +68,8 @@ func _init() -> void:
 			_expect(
 				camera.position.is_equal_approx(Vector3(0.0, 12.0, 10.0))
 					and camera.basis.x.is_equal_approx(Vector3.RIGHT)
-					and is_equal_approx(camera.size, 10.5),
-				"runtime camera uses the high three-quarter overview"
+					and is_equal_approx(camera.size, 5.0),
+				"runtime camera uses the close three-quarter view"
 			)
 			_expect(camera.attributes != null, "runtime camera has diorama depth of field")
 	runtime.free()

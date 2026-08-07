@@ -15,9 +15,48 @@ const RUIN_COLOR: Color = Color(0.38, 0.37, 0.33, 1.0)
 ## Meters of world-space floor covered by one tile of a terrain texture.
 const TERRAIN_TILE_METERS: float = 2.5
 
+## Half-width in meters that the orthographic camera actually shows at
+## size 5.0 on a 16:9 viewport. Orthographic projection has no perspective
+## spread, so scenery beyond this X never reaches the screen no matter how
+## tall it is: canyon walls have to sit inside this bound to frame the shot.
+const VIEW_HALF_WIDTH: float = 4.45
+
+## Wet stone reads as damp when it keeps a tight specular highlight, so the
+## walking surfaces stay far below the dry-rock roughness used elsewhere.
+const WET_GROUND_ROUGHNESS: float = 0.62
+const WET_PATH_ROUGHNESS: float = 0.42
+
+## The limestone source texture is a bright quarry grey. Knocking it down keeps
+## the walking path from out-brightening the lantern pools, while staying
+## lighter than the surrounding gravel so it still reads as a route.
+const PATH_TINT: Color = Color(0.66, 0.65, 0.63, 1.0)
+
+## Flagstone reads at a tighter repeat than open ground, otherwise a single
+## slab shows one giant stone face and looks untextured.
+const PATH_TILE_METERS: float = 1.1
+
+## Number of discrete tone / gloss variants a flagstone slab can pick from.
+## Quantising the jitter keeps the terrain material cache small: without it,
+## every slab would allocate its own StandardMaterial3D.
+const PATH_TONE_STEPS: int = 5
+const PATH_GLOSS_STEPS: int = 3
+
+## Canyon segments that ring the route: [z_center, z_length, path_half_width].
+## Walls hug the path edge so the corridor sections read as a narrow gorge.
+const CANYON_SEGMENTS: Array = [
+	[8.0, 9.0, 2.95],
+	[-7.0, 7.0, 3.4],
+	[-17.0, 15.0, 2.5],
+	[-29.0, 11.0, 6.0],
+	[-37.0, 7.0, 1.75],
+	[-47.0, 15.0, 8.0],
+]
+
 const GROUND_SOIL_TEXTURE: Texture2D = preload("res://assets/textures/terrain/ground_soil.png")
 const GRAVE_STONE_TEXTURE: Texture2D = preload("res://assets/textures/terrain/grave_stone.png")
 const CORRUPTION_GROUND_TEXTURE: Texture2D = preload("res://assets/textures/terrain/corruption_ground.png")
+const DEEP_EXIT_SOIL_PATH: String = "res://assets/textures/terrain/deep_exit_soil.png"
+const WEATHERED_LIMESTONE_PATH: String = "res://assets/textures/terrain/weathered_limestone.png"
 
 const GROUND_SOIL_NORMAL_PATH: String = "res://assets/textures/terrain/ground_soil_n.png"
 const GRAVE_STONE_NORMAL_PATH: String = "res://assets/textures/terrain/grave_stone_n.png"
@@ -36,10 +75,14 @@ var _organic_rock_materials: Dictionary[String, ShaderMaterial] = {}
 var _materials: Dictionary[String, StandardMaterial3D] = {}
 var _terrain_materials: Dictionary[String, StandardMaterial3D] = {}
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _deep_exit_soil_texture: ImageTexture
+var _weathered_limestone_texture: ImageTexture
 
 
 func _ready() -> void:
 	_rng.seed = 20260805
+	_deep_exit_soil_texture = _load_source_texture(DEEP_EXIT_SOIL_PATH)
+	_weathered_limestone_texture = _load_source_texture(WEATHERED_LIMESTONE_PATH)
 	_build_deep_exit()
 	_build_bridge()
 	_build_xumen_gate()
@@ -55,17 +98,34 @@ func has_section(section_name: StringName) -> bool:
 
 
 func _build_deep_exit() -> void:
-	var section: Node3D = _create_section(&"DeepExit", Vector3(0.0, -0.2, 8.0), Vector3(9.0, 0.4, 8.0), GROUND_COLOR, GROUND_SOIL_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, 8.0), Vector2(9.0, 8.0))
-	_add_block(section, &"BrokenRearWall", Vector3(0.0, 0.75, 12.0), Vector3(9.0, 1.5, 0.5), WALL_COLOR)
-	_add_block(section, &"InvertedSteleLeft", Vector3(-2.4, 1.35, 8.2), Vector3(0.8, 2.7, 0.8), WALL_COLOR)
-	_add_block(section, &"InvertedSteleRight", Vector3(2.1, 1.8, 6.6), Vector3(0.9, 3.6, 0.9), WALL_COLOR)
-	_add_crack(section, &"ExitCrack", Vector3(1.2, 0.01, 9.8), Vector3(0.18, 0.06, 2.6))
-	_add_tombstone(section, &"ExitTomb", Vector3(-3.0, 0.0, 10.2), 0.9, 1.7)
-	_add_tombstone(section, &"ExitTombBroken", Vector3(3.4, 0.0, 9.2), 0.7, 1.1)
-	_add_rock_pile(section, &"ExitRocks", Vector3(-3.9, 0.0, 6.4), 0.45, 4)
-	_add_rock_pile(section, &"ExitRocks2", Vector3(3.9, 0.0, 10.0), 0.4, 3)
-	_add_dead_tree(section, &"ExitTree", Vector3(-3.7, 0.0, 11.0), 2.6)
+	var section: Node3D = _create_section(&"DeepExit", Vector3(0.0, -0.2, 8.0), Vector3(9.0, 0.4, 8.0), GROUND_COLOR, _deep_exit_soil_texture)
+	_add_deep_exit_rails(section)
+	var broken_wall_profile := PackedVector2Array([
+		Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 0.72),
+		Vector2(0.86, 0.82), Vector2(0.7, 0.66), Vector2(0.54, 0.94),
+		Vector2(0.34, 0.77), Vector2(0.17, 1.0), Vector2(0.0, 0.82),
+	])
+	_add_profile_body(section, &"BrokenRearWallLeft", Vector3(-2.15, 0.55, 12.0), Vector3(1.9, 1.1, 0.5), broken_wall_profile, _weathered_limestone_texture)
+	_add_profile_body(section, &"BrokenRearWallRight", Vector3(2.15, 0.42, 12.0), Vector3(1.9, 0.84, 0.5), broken_wall_profile, _weathered_limestone_texture, Vector3(0.0, 180.0, 0.0))
+	var stele_profile := PackedVector2Array([
+		Vector2(0.12, 0.0), Vector2(0.88, 0.0), Vector2(1.0, 0.72),
+		Vector2(0.82, 0.96), Vector2(0.62, 0.9), Vector2(0.42, 1.0),
+		Vector2(0.14, 0.86), Vector2(0.0, 0.34),
+	])
+	_add_profile_body(section, &"InvertedSteleLeft", Vector3(-1.95, 1.25, 8.2), Vector3(0.58, 2.5, 0.42), stele_profile, _weathered_limestone_texture, Vector3(-5.0, -8.0, 7.0))
+	_add_profile_body(section, &"InvertedSteleRight", Vector3(1.8, 1.55, 6.6), Vector3(0.66, 3.1, 0.46), stele_profile, _weathered_limestone_texture, Vector3(4.0, 10.0, -6.0))
+	var exit_crack_a := _make_decor_body(section, &"ExitCrackA", Vector3(1.15, 0.005, 9.3), Vector3(0.1, 0.025, 0.9), CRACK_COLOR)
+	exit_crack_a.rotation_degrees.y = -12.0
+	var exit_crack_b := _make_decor_body(section, &"ExitCrackB", Vector3(1.28, 0.005, 10.05), Vector3(0.09, 0.025, 0.7), CRACK_COLOR)
+	exit_crack_b.rotation_degrees.y = 11.0
+	var exit_crack_c := _make_decor_body(section, &"ExitCrackC", Vector3(1.48, 0.005, 10.58), Vector3(0.07, 0.025, 0.45), CRACK_COLOR)
+	exit_crack_c.rotation_degrees.y = 24.0
+	_add_deep_exit_tombstone(section, &"ExitTomb", Vector3(-2.3, 0.0, 10.2), 0.9, 1.7, false)
+	_add_deep_exit_tombstone(section, &"ExitTombBroken", Vector3(2.35, 0.0, 9.2), 0.7, 1.1, true)
+	_add_rock_pile(section, &"ExitRocks", Vector3(-2.5, 0.0, 6.4), 0.45, 4)
+	_add_rock_pile(section, &"ExitRocks2", Vector3(2.5, 0.0, 10.0), 0.4, 3)
+	_add_dead_tree(section, &"ExitTree", Vector3(-2.55, 0.0, 11.0), 2.6)
+	_add_stone_path(section, &"ExitPath", 12.0, 4.5, 2.4)
 	_add_label(section, "归墟出口", Vector3(0.0, 3.2, 9.5))
 
 
@@ -81,15 +141,16 @@ func _build_bridge() -> void:
 
 func _build_xumen_gate() -> void:
 	var section: Node3D = _create_section(&"XumenGate", Vector3(0.0, -0.2, -7.0), Vector3(10.0, 0.4, 6.0), GROUND_COLOR, GROUND_SOIL_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, -7.0), Vector2(10.0, 6.0))
-	_add_block(section, &"GatePillarLeft", Vector3(-3.1, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
-	_add_block(section, &"GatePillarRight", Vector3(3.1, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
-	_add_block(section, &"GateLintel", Vector3(0.0, 4.0, -8.0), Vector3(7.4, 0.7, 1.0), WALL_COLOR)
+	_add_side_rails(section, Vector3(0.0, 0.0, -7.0), Vector2(6.7, 6.0))
+	_add_block(section, &"GatePillarLeft", Vector3(-2.45, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
+	_add_block(section, &"GatePillarRight", Vector3(2.45, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
+	_add_block(section, &"GateLintel", Vector3(0.0, 4.0, -8.0), Vector3(6.1, 0.7, 1.0), WALL_COLOR)
 	_add_corruption_patch(section, &"GateCorruption", Vector3(-1.6, 0.01, -6.4), Vector3(2.4, 0.05, 2.0))
-	_add_tombstone(section, &"GateTombLeft", Vector3(-4.6, 0.0, -6.2), 0.8, 1.5)
-	_add_tombstone(section, &"GateTombRight", Vector3(4.4, 0.0, -7.6), 0.9, 1.9)
-	_add_rock_pile(section, &"GateRocks", Vector3(-4.6, 0.0, -9.0), 0.4, 4)
-	_add_dead_tree(section, &"GateTree", Vector3(4.6, 0.0, -5.2), 2.2)
+	_add_tombstone(section, &"GateTombLeft", Vector3(-2.6, 0.0, -6.2), 0.8, 1.5)
+	_add_tombstone(section, &"GateTombRight", Vector3(2.5, 0.0, -7.6), 0.9, 1.9)
+	_add_rock_pile(section, &"GateRocks", Vector3(-2.6, 0.0, -9.0), 0.4, 4)
+	_add_dead_tree(section, &"GateTree", Vector3(2.6, 0.0, -5.2), 2.2)
+	_add_stone_path(section, &"GatePath", -4.0, -10.0, 2.6)
 	_add_label(section, "墟门", Vector3(0.0, 5.1, -8.0))
 
 
@@ -107,10 +168,11 @@ func _build_burial_road() -> void:
 	_add_tombstone(section, &"RoadTomb4", Vector3(1.7, 0.0, -23.4), 0.6, 1.0)
 	_add_corruption_patch(section, &"RoadCorruption1", Vector3(-0.8, 0.01, -19.6), Vector3(1.6, 0.05, 1.4))
 	_add_corruption_patch(section, &"RoadCorruption2", Vector3(1.0, 0.01, -22.8), Vector3(1.3, 0.05, 1.1))
-	_add_rock_pile(section, &"RoadRocks1", Vector3(-2.2, 0.0, -15.0), 0.4, 4)
-	_add_rock_pile(section, &"RoadRocks2", Vector3(2.2, 0.0, -22.0), 0.35, 3)
-	_add_dead_tree(section, &"RoadTree1", Vector3(-2.1, 0.0, -19.0), 2.8)
-	_add_dead_tree(section, &"RoadTree2", Vector3(2.2, 0.0, -24.5), 2.0)
+	_add_rock_pile(section, &"RoadRocks1", Vector3(-1.95, 0.0, -15.0), 0.4, 4)
+	_add_rock_pile(section, &"RoadRocks2", Vector3(1.95, 0.0, -22.0), 0.35, 3)
+	_add_dead_tree(section, &"RoadTree1", Vector3(-1.9, 0.0, -19.0), 2.8)
+	_add_dead_tree(section, &"RoadTree2", Vector3(1.95, 0.0, -24.5), 2.0)
+	_add_stone_path(section, &"RoadPath", -10.5, -24.0, 2.2)
 	_add_label(section, "送葬道", Vector3(0.0, 3.0, -18.0))
 
 
@@ -140,8 +202,9 @@ func _build_boss_approach() -> void:
 	_add_side_rails(section, Vector3(0.0, 0.0, -37.0), Vector2(3.5, 6.0))
 	_add_vein_patch(section, &"VeinPassage", Vector3(0.2, 0.02, -38.4), Vector3(0.6, 0.08, 2.6))
 	_add_tombstone(section, &"PassageTomb", Vector3(1.2, 0.0, -36.2), 0.7, 1.3)
-	_add_ruin_pillar(section, &"PassagePillar", Vector3(-1.8, 0.0, -39.6), 0.5, 2.8)
-	_add_rock_pile(section, &"PassageRocks", Vector3(-1.6, 0.0, -36.8), 0.35, 3)
+	_add_ruin_pillar(section, &"PassagePillar", Vector3(-1.25, 0.0, -39.6), 0.5, 2.8)
+	_add_rock_pile(section, &"PassageRocks", Vector3(-1.3, 0.0, -36.8), 0.35, 3)
+	_add_stone_path(section, &"PassagePath", -34.0, -40.0, 1.6)
 
 
 func _build_boss_arena() -> void:
@@ -164,27 +227,16 @@ func _build_boss_arena() -> void:
 
 ## Rings the playable route with tall irregular rock walls that block the
 ## view of the empty void beyond the level. Walls are pure visuals with no
-## collision; they sit well outside the rail bounds the player can reach.
+## collision; they sit just outside the rail bounds the player can reach so
+## they read as a gorge wall instead of a distant backdrop.
 func _build_backdrop_walls() -> void:
 	var backdrop: Node3D = Node3D.new()
 	backdrop.name = &"BackdropWalls"
 	add_child(backdrop)
-	## Right side (positive X): from the deep exit to past the boss arena.
-	for index: int in range(10):
-		var z: float = 15.0 - index * 7.0
-		_add_organic_cliff(
-			backdrop, StringName("RightWall%d" % index),
-			Vector3(11.5, 0.0, z), Vector3(2.4, 7.0 + _rng.randf_range(-1.5, 1.5), 6.8),
-			_rng.randf_range(-4.0, 4.0)
-		)
-	## Left side (negative X).
-	for index: int in range(10):
-		var z: float = 15.0 - index * 7.0
-		_add_organic_cliff(
-			backdrop, StringName("LeftWall%d" % index),
-			Vector3(-11.5, 0.0, z), Vector3(2.4, 7.0 + _rng.randf_range(-1.5, 1.5), 6.8),
-			_rng.randf_range(-4.0, 4.0)
-		)
+	for index: int in CANYON_SEGMENTS.size():
+		var segment: Array = CANYON_SEGMENTS[index]
+		_add_canyon_side(backdrop, index, segment[0], segment[1], segment[2], 1.0)
+		_add_canyon_side(backdrop, index, segment[0], segment[1], segment[2], -1.0)
 	## Rear cap behind the boss arena.
 	for index: int in range(5):
 		var x: float = -8.0 + index * 4.0
@@ -193,24 +245,54 @@ func _build_backdrop_walls() -> void:
 			Vector3(x, 0.0, -57.0), Vector3(3.6, 8.0 + _rng.randf_range(-1.5, 1.5), 2.2),
 			_rng.randf_range(-3.0, 3.0)
 		)
-	## Front cap behind the deep exit (player starts facing away from it).
-	for index: int in range(5):
-		var x: float = -8.0 + index * 4.0
+
+
+## Lays one flank of a canyon segment as overlapping cliff blocks. The blocks
+## are stepped along Z with jittered height and yaw so the silhouette breaks
+## up instead of reading as one long extruded wall.
+func _add_canyon_side(
+	backdrop: Node3D,
+	segment_index: int,
+	z_center: float,
+	z_length: float,
+	path_half_width: float,
+	side: float
+) -> void:
+	const BLOCK_DEPTH: float = 2.8
+	const BLOCK_WIDTH: float = 2.4
+	var step: float = 2.4
+	var count: int = int(ceil(z_length / step)) + 1
+	var z_start: float = z_center + z_length * 0.5
+	## Offset so the inner face lands flush with the path edge.
+	var x: float = side * (path_half_width + BLOCK_WIDTH * 0.5 - 0.05)
+	var side_tag: String = "Right" if side > 0.0 else "Left"
+	for index: int in range(count):
+		var z: float = z_start - index * step
+		var height: float = _rng.randf_range(5.0, 8.5)
 		_add_organic_cliff(
-			backdrop, StringName("FrontWall%d" % index),
-			Vector3(x, 0.0, 17.5), Vector3(3.6, 8.0 + _rng.randf_range(-1.5, 1.5), 2.2),
-			_rng.randf_range(-3.0, 3.0)
+			backdrop, StringName("Canyon%s%d_%d" % [side_tag, segment_index, index]),
+			Vector3(x + side * _rng.randf_range(0.0, 0.5), 0.0, z),
+			Vector3(BLOCK_WIDTH, height, BLOCK_DEPTH),
+			_rng.randf_range(-6.0, 6.0),
+			0.62
 		)
 
 
-func _add_organic_cliff(parent: Node3D, block_name: StringName, center: Vector3, size: Vector3, yaw: float) -> void:
+func _add_organic_cliff(
+	parent: Node3D,
+	block_name: StringName,
+	center: Vector3,
+	size: Vector3,
+	yaw: float,
+	darken: float = 0.2
+) -> void:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = block_name
 	mesh_instance.position = center
 	var box_mesh := BoxMesh.new()
 	box_mesh.size = size
 	mesh_instance.mesh = box_mesh
-	mesh_instance.material_override = _get_organic_rock_material(size)
+	mesh_instance.material_override = _get_organic_rock_material(size, darken)
 	mesh_instance.rotation_degrees = Vector3(0.0, yaw, 0.0)
 	parent.add_child(mesh_instance)
 
@@ -229,23 +311,107 @@ func _create_section(
 	return section
 
 
-func _add_side_rails(parent: Node3D, center: Vector3, floor_size: Vector2) -> void:
-	var rail_size: Vector3 = Vector3(0.35, 0.85, floor_size.y)
+func _add_side_rails(parent: Node3D, center: Vector3, floor_size: Vector2, texture: Texture2D = null, height: float = 0.85) -> void:
+	var rail_size: Vector3 = Vector3(0.35, height, floor_size.y)
 	var edge_x: float = floor_size.x * 0.5 - rail_size.x * 0.5
-	_add_block(parent, &"RailLeft", center + Vector3(-edge_x, 0.425, 0.0), rail_size, WALL_COLOR)
-	_add_block(parent, &"RailRight", center + Vector3(edge_x, 0.425, 0.0), rail_size, WALL_COLOR)
+	_add_block(parent, &"RailLeft", center + Vector3(-edge_x, height * 0.5, 0.0), rail_size, WALL_COLOR, texture)
+	_add_block(parent, &"RailRight", center + Vector3(edge_x, height * 0.5, 0.0), rail_size, WALL_COLOR, texture)
+
+
+func _add_deep_exit_rails(parent: Node3D) -> void:
+	var profile := PackedVector2Array([
+		Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 0.62),
+		Vector2(0.86, 0.78), Vector2(0.7, 0.58), Vector2(0.5, 0.9),
+		Vector2(0.28, 0.7), Vector2(0.12, 1.0), Vector2(0.0, 0.76),
+	])
+	_add_profile_body(parent, &"RailLeft", Vector3(-2.75, 0.225, 8.0), Vector3(8.0, 0.45, 0.35), profile, _weathered_limestone_texture, Vector3(0.0, 90.0, 0.0))
+	_add_profile_body(parent, &"RailRight", Vector3(2.75, 0.225, 8.0), Vector3(8.0, 0.45, 0.35), profile, _weathered_limestone_texture, Vector3(0.0, 90.0, 0.0))
+
+
+func _add_deep_exit_tombstone(parent: Node3D, block_name: StringName, center: Vector3, width: float, height: float, broken: bool) -> void:
+	var base_profile := PackedVector2Array([
+		Vector2(0.08, 0.0), Vector2(0.92, 0.0), Vector2(1.0, 0.55),
+		Vector2(0.85, 1.0), Vector2(0.15, 0.9), Vector2(0.0, 0.45),
+	])
+	_add_profile_body(parent, StringName("%sBase" % block_name), center + Vector3(0.0, 0.11, 0.0), Vector3(width, 0.22, 0.55), base_profile, _weathered_limestone_texture)
+	var slab_profile := PackedVector2Array([
+		Vector2(0.08, 0.0), Vector2(0.92, 0.0), Vector2(1.0, 0.72),
+		Vector2(0.78, 0.95 if broken else 1.0), Vector2(0.58, 0.84 if broken else 0.96),
+		Vector2(0.35, 1.0), Vector2(0.08, 0.84), Vector2(0.0, 0.38),
+	])
+	var rotation := Vector3(0.0, -7.0 if broken else 5.0, 9.0 if broken else -4.0)
+	_add_profile_body(parent, StringName("%sSlab" % block_name), center + Vector3(0.0, 0.22 + height * 0.5, 0.0), Vector3(width * 0.58, height, 0.24), slab_profile, _weathered_limestone_texture, rotation)
+
+
+func _add_profile_body(
+	parent: Node3D,
+	block_name: StringName,
+	center: Vector3,
+	size: Vector3,
+	profile: PackedVector2Array,
+	texture: Texture2D,
+	rotation: Vector3 = Vector3.ZERO
+) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = block_name
+	body.position = center
+	body.rotation_degrees = rotation
+	parent.add_child(body)
+	var visual := MeshInstance3D.new()
+	visual.name = &"Visual"
+	visual.mesh = _make_extruded_profile(profile, size)
+	var material := _get_terrain_material(texture, size).duplicate() as StandardMaterial3D
+	material.albedo_color = Color(0.62, 0.64, 0.61, 1.0)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	visual.material_override = material
+	body.add_child(visual)
+	var collision := CollisionShape3D.new()
+	collision.name = &"CollisionShape3D"
+	var box := BoxShape3D.new()
+	box.size = size
+	collision.shape = box
+	body.add_child(collision)
+	return body
+
+
+func _make_extruded_profile(profile: PackedVector2Array, size: Vector3) -> ArrayMesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var triangles := Geometry2D.triangulate_polygon(profile)
+	for offset: int in range(0, triangles.size(), 3):
+		for vertex_index: int in [triangles[offset], triangles[offset + 1], triangles[offset + 2]]:
+			_add_profile_vertex(surface, profile[vertex_index], size.z * 0.5, size)
+		for vertex_index: int in [triangles[offset + 2], triangles[offset + 1], triangles[offset]]:
+			_add_profile_vertex(surface, profile[vertex_index], size.z * -0.5, size)
+	for index: int in profile.size():
+		var next: int = (index + 1) % profile.size()
+		var a := profile[index]
+		var b := profile[next]
+		_add_profile_vertex(surface, a, size.z * -0.5, size, Vector2(0.0, 0.0))
+		_add_profile_vertex(surface, b, size.z * -0.5, size, Vector2(1.0, 0.0))
+		_add_profile_vertex(surface, b, size.z * 0.5, size, Vector2(1.0, 1.0))
+		_add_profile_vertex(surface, a, size.z * -0.5, size, Vector2(0.0, 0.0))
+		_add_profile_vertex(surface, b, size.z * 0.5, size, Vector2(1.0, 1.0))
+		_add_profile_vertex(surface, a, size.z * 0.5, size, Vector2(0.0, 1.0))
+	surface.generate_normals()
+	return surface.commit()
+
+
+func _add_profile_vertex(surface: SurfaceTool, point: Vector2, z: float, size: Vector3, uv: Vector2 = Vector2(-1.0, -1.0)) -> void:
+	surface.set_uv(point if uv.x < 0.0 else uv)
+	surface.add_vertex(Vector3((point.x - 0.5) * size.x, (point.y - 0.5) * size.y, z))
 
 
 ## A white tombstone slab: base + upright stele. The stele is randomly
 ## tilted and rotated so the row of graves feels irregular, not factory-cut.
-func _add_tombstone(parent: Node3D, block_name: StringName, center: Vector3, width: float, height: float) -> void:
+func _add_tombstone(parent: Node3D, block_name: StringName, center: Vector3, width: float, height: float, texture: Texture2D = null) -> void:
 	var base_size: Vector3 = Vector3(width * 0.9, 0.22, 0.5)
 	var slab_size: Vector3 = Vector3(width * 0.55, height, 0.22)
-	_add_block(parent, StringName("%sBase" % block_name), center + Vector3(0.0, 0.11, 0.0), base_size, TOMBSTONE_COLOR)
+	_add_block(parent, StringName("%sBase" % block_name), center + Vector3(0.0, 0.11, 0.0), base_size, TOMBSTONE_COLOR, texture)
 	var slab_yaw: float = _rng.randf_range(-10.0, 10.0)
 	var slab_lean: float = _rng.randf_range(2.0, 9.0) * (_rng.randf() < 0.5 as int * 2 - 1)
 	var slab_body: StaticBody3D = _make_decor_body(
-		parent, StringName("%sSlab" % block_name), center + Vector3(0.0, 0.22 + height * 0.5, 0.0), slab_size, TOMBSTONE_COLOR
+		parent, StringName("%sSlab" % block_name), center + Vector3(0.0, 0.22 + height * 0.5, 0.0), slab_size, TOMBSTONE_COLOR, texture
 	)
 	slab_body.rotation_degrees = Vector3(0.0, slab_yaw, slab_lean)
 
@@ -371,6 +537,70 @@ func _add_ruin_pillar(parent: Node3D, block_name: StringName, center: Vector3, w
 	section.add_child(cap)
 
 
+## Lays a brighter wet flagstone path down the middle of a corridor so the eye
+## has something to follow. Slabs are laid as a running-bond grid with dark
+## grout gaps between them, and each slab gets its own tone and yaw jitter so
+## the run reads as worn paving rather than a painted lane. Visual only: the
+## slabs sit a few millimetres above the floor and carry no collision.
+func _add_stone_path(parent: Node3D, block_name: StringName, z_from: float, z_to: float, width: float) -> void:
+	## Grout gap between neighbouring slabs; the dark floor shows through it.
+	const SLAB_GAP: float = 0.07
+	## Target slab footprint before jitter, in metres.
+	const SLAB_LENGTH: float = 0.95
+	const SLAB_WIDTH: float = 0.85
+	var path_root: Node3D = Node3D.new()
+	path_root.name = block_name
+	parent.add_child(path_root)
+	var span: float = absf(z_to - z_from)
+	var direction: float = signf(z_to - z_from)
+	var rows: int = maxi(1, int(round(span / SLAB_LENGTH)))
+	var row_length: float = span / float(rows)
+	var columns: int = maxi(1, int(round(width / SLAB_WIDTH)))
+	var column_width: float = width / float(columns)
+	for row: int in range(rows):
+		var z: float = z_from + direction * (row + 0.5) * row_length
+		## Running bond: every other row is nudged half a slab sideways so the
+		## grout lines never form one continuous seam down the corridor.
+		var bond_offset: float = 0.0 if row % 2 == 0 else column_width * 0.5
+		for column: int in range(columns):
+			var x: float = (column + 0.5) * column_width - width * 0.5 + bond_offset
+			if absf(x) > width * 0.5:
+				continue
+			var mesh_instance := MeshInstance3D.new()
+			mesh_instance.name = StringName("Slab%d_%d" % [row, column])
+			var box_mesh := BoxMesh.new()
+			box_mesh.size = Vector3(
+				maxf(0.2, column_width - SLAB_GAP),
+				0.03,
+				maxf(0.2, row_length - SLAB_GAP)
+			)
+			mesh_instance.mesh = box_mesh
+			mesh_instance.position = Vector3(
+				x + _rng.randf_range(-0.03, 0.03),
+				_rng.randf_range(0.012, 0.022),
+				z + _rng.randf_range(-0.03, 0.03)
+			)
+			mesh_instance.rotation_degrees = Vector3(0.0, _rng.randf_range(-2.5, 2.5), 0.0)
+			## Per-slab tone and gloss drift keeps the paving from reading as one
+			## flat plate. Both are quantised into a handful of steps so the slabs
+			## keep sharing cached materials instead of allocating one each.
+			var tone: float = (_rng.randi_range(0, PATH_TONE_STEPS - 1) / float(PATH_TONE_STEPS - 1) - 0.5) * 0.18
+			var slab_tint := Color(
+				clampf(PATH_TINT.r + tone, 0.0, 1.0),
+				clampf(PATH_TINT.g + tone, 0.0, 1.0),
+				clampf(PATH_TINT.b + tone, 0.0, 1.0)
+			)
+			var gloss: float = (_rng.randi_range(0, PATH_GLOSS_STEPS - 1) / float(PATH_GLOSS_STEPS - 1) - 0.5) * 0.12
+			mesh_instance.material_override = _get_terrain_material(
+				_weathered_limestone_texture,
+				box_mesh.size,
+				WET_PATH_ROUGHNESS + gloss,
+				slab_tint,
+				PATH_TILE_METERS
+			)
+			path_root.add_child(mesh_instance)
+
+
 func _make_decor_body(
 	parent: Node3D,
 	block_name: StringName,
@@ -431,13 +661,13 @@ func _get_material(color: Color) -> StandardMaterial3D:
 ## Returns a cached ShaderMaterial that displaces box geometry into rough
 ## rock via per-vertex value noise (see organic_rock.gdshader). Used by the
 ## backdrop walls and rock piles so nothing reads as a clean box.
-func _get_organic_rock_material(size: Vector3) -> ShaderMaterial:
-	var key: String = "organic_%s" % size
+func _get_organic_rock_material(size: Vector3, darken: float = 0.2) -> ShaderMaterial:
+	var key: String = "organic_%s_%s" % [size, darken]
 	if _organic_rock_materials.has(key):
 		return _organic_rock_materials[key]
 	var material := ShaderMaterial.new()
 	material.shader = ORGANIC_ROCK_SHADER
-	var base_color: Color = RUIN_COLOR.darkened(_rng.randf_range(0.1, 0.3))
+	var base_color: Color = RUIN_COLOR.darkened(darken + _rng.randf_range(0.0, 0.12))
 	material.set_shader_parameter(&"albedo_color", base_color)
 	material.set_shader_parameter(&"roughness", 0.97)
 	material.set_shader_parameter(&"strength", 1.1)
@@ -466,21 +696,42 @@ func _load_normal_for(albedo: Texture2D) -> Texture2D:
 	return texture
 
 
+func _load_source_texture(path: String) -> ImageTexture:
+	var image := Image.new()
+	if image.load(path) != OK:
+		push_error("Failed to load terrain texture: %s" % path)
+		return null
+	image.generate_mipmaps()
+	var texture := ImageTexture.create_from_image(image)
+	texture.resource_name = path.get_file()
+	return texture
+
+
 ## Returns a cached tiling material for a terrain texture. The UV scale is
 ## derived from the block's world-space footprint so the pattern repeats at
 ## a consistent real-world tile size instead of stretching per block.
 ## NOTE: cache key includes the block size, because different footprint
 ## blocks must get different UV scales (texture repeats per world meter).
-func _get_terrain_material(texture: Texture2D, size: Vector3) -> StandardMaterial3D:
-	var key: String = "%s|%s" % [texture.resource_path, size]
+func _get_terrain_material(
+	texture: Texture2D,
+	size: Vector3,
+	roughness: float = WET_GROUND_ROUGHNESS,
+	tint: Color = Color.WHITE,
+	tile_meters: float = TERRAIN_TILE_METERS
+) -> StandardMaterial3D:
+	var texture_id: String = texture.resource_path if not texture.resource_path.is_empty() else texture.resource_name
+	var key: String = "%s|%s|%s|%s|%s" % [texture_id, size, roughness, tint, tile_meters]
 	if _terrain_materials.has(key):
 		return _terrain_materials[key]
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_texture = texture
-	material.roughness = 0.95
+	material.albedo_color = tint
+	material.roughness = roughness
+	## Damp stone bounces a tighter, stronger highlight than dry rock.
+	material.metallic_specular = 0.72
 	material.uv1_scale = Vector3(
-		maxf(1.0, size.x / TERRAIN_TILE_METERS),
-		maxf(1.0, size.z / TERRAIN_TILE_METERS),
+		maxf(1.0, size.x / tile_meters),
+		maxf(1.0, size.z / tile_meters),
 		1.0
 	)
 	var normal_tex: Texture2D = _load_normal_for(texture)

@@ -41,8 +41,28 @@ func _run_test() -> void:
 
 	var floor_body: StaticBody3D = route.get_node("DeepExit/Floor") as StaticBody3D
 	var floor_collision: CollisionShape3D = floor_body.get_node("CollisionShape3D") as CollisionShape3D
+	var floor_visual: MeshInstance3D = floor_body.get_node("Visual") as MeshInstance3D
+	var floor_material: StandardMaterial3D = floor_visual.material_override as StandardMaterial3D
 	_expect(floor_collision.shape is BoxShape3D, "greybox floor has primitive collision")
 	_expect(floor_body.scale.is_equal_approx(Vector3.ONE), "greybox physics bodies are not scaled")
+	_expect(floor_material.albedo_texture.resource_name == "deep_exit_soil.png", "deep exit uses realistic soil material")
+	var wall_visual: MeshInstance3D = route.get_node("DeepExit/BrokenRearWallLeft/Visual") as MeshInstance3D
+	var wall_material: StandardMaterial3D = wall_visual.material_override as StandardMaterial3D
+	_expect(wall_material.albedo_texture.resource_name == "weathered_limestone.png", "deep exit stonework uses weathered limestone")
+	_expect(wall_visual.mesh is ArrayMesh, "deep exit wall uses a broken profile mesh")
+	var wall_collision: CollisionShape3D = route.get_node("DeepExit/BrokenRearWallLeft/CollisionShape3D") as CollisionShape3D
+	_expect(wall_collision.shape is BoxShape3D, "deep exit detailed wall keeps simple collision")
+	var stele_visual: MeshInstance3D = route.get_node("DeepExit/InvertedSteleLeft/Visual") as MeshInstance3D
+	var tomb_visual: MeshInstance3D = route.get_node("DeepExit/ExitTombSlab/Visual") as MeshInstance3D
+	_expect(stele_visual.mesh is ArrayMesh, "deep exit stele uses a damaged profile mesh")
+	_expect(tomb_visual.mesh is ArrayMesh, "deep exit tombstone uses a damaged profile mesh")
+	_expect(route.get_node_or_null("DeepExit/BrokenRearWall") == null, "deep exit rear wall leaves the center sightline open")
+	_expect(route.get_node_or_null("BackdropWalls/FrontWall0") == null, "deep exit view has no foreground cliff cap")
+	var atmosphere: Node3D = level.get_node("Atmosphere") as Node3D
+	var first_lantern: Node3D = atmosphere.get_node("Lantern") as Node3D
+	_expect(first_lantern.has_node("StonePart4"), "deep exit uses the layered stone lantern")
+	var moon_pool: SpotLight3D = atmosphere.get_node("DeepExitMoonPool") as SpotLight3D
+	_expect(moon_pool.shadow_enabled, "deep exit moon pool casts focused shadows")
 
 	var boss_trigger: Area3D = level.get_node("Triggers/BossArena") as Area3D
 	_expect(boss_trigger.get_collision_mask_value(6), "zone triggers scan only the player body layer")

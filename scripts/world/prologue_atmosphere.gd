@@ -12,25 +12,26 @@ const STONE_COLOR: Color = Color(0.42, 0.4, 0.35, 1.0)
 
 ## Lantern positions along the route: [position, base_energy, phase].
 const LANTERNS: Array = [
-	[Vector3(-3.4, 0.0, 8.4), 2.2, 0.0],
-	[Vector3(3.4, 0.0, 7.2), 2.2, 1.3],
+	[Vector3(-2.25, 0.0, 8.4), 2.2, 0.0],
+	[Vector3(2.25, 0.0, 7.2), 2.2, 1.3],
 	[Vector3(-2.6, 0.0, -0.4), 1.8, 2.6],
 	[Vector3(2.6, 0.0, 0.6), 1.8, 3.9],
-	[Vector3(-4.2, 0.0, -7.4), 2.6, 0.7],
-	[Vector3(4.2, 0.0, -8.6), 2.6, 2.0],
-	[Vector3(-2.7, 0.0, -13.2), 2.0, 3.3],
-	[Vector3(2.7, 0.0, -13.8), 2.0, 4.6],
-	[Vector3(-2.7, 0.0, -20.4), 1.8, 1.1],
-	[Vector3(2.7, 0.0, -21.0), 1.8, 2.4],
+	[Vector3(-2.7, 0.0, -7.4), 2.6, 0.7],
+	[Vector3(2.7, 0.0, -8.6), 2.6, 2.0],
+	[Vector3(-1.9, 0.0, -13.2), 2.0, 3.3],
+	[Vector3(1.9, 0.0, -13.8), 2.0, 4.6],
+	[Vector3(-1.9, 0.0, -20.4), 1.8, 1.1],
+	[Vector3(1.9, 0.0, -21.0), 1.8, 2.4],
 	[Vector3(-5.4, 0.0, -28.2), 2.4, 3.7],
 	[Vector3(5.4, 0.0, -29.0), 2.4, 5.0],
-	[Vector3(-2.4, 0.0, -36.6), 1.6, 1.9],
-	[Vector3(2.4, 0.0, -37.4), 1.6, 3.2],
+	[Vector3(-1.3, 0.0, -36.6), 1.6, 1.9],
+	[Vector3(1.3, 0.0, -37.4), 1.6, 3.2],
 	[Vector3(-6.2, 0.0, -46.4), 2.8, 4.5],
 	[Vector3(6.2, 0.0, -47.6), 2.8, 5.8],
 ]
 
 const DUST_EMITTERS: Array = [
+	[Vector3(0.0, 0.65, 8.0), Vector3(4.2, 0.45, 3.5)],
 	[Vector3(0.0, 0.8, -17.0), Vector3(5.0, 0.6, 12.0)],
 	[Vector3(0.0, 0.8, -29.0), Vector3(11.0, 0.6, 9.0)],
 ]
@@ -48,6 +49,7 @@ var _time: float = 0.0
 
 
 func _ready() -> void:
+	_build_deep_exit_moon_pool()
 	_build_lanterns()
 	_build_dust()
 	_build_corruption()
@@ -65,43 +67,84 @@ func _process(delta: float) -> void:
 func _build_lanterns() -> void:
 	for entry: Array in LANTERNS:
 		var position: Vector3 = entry[0]
-		var energy: float = float(entry[1]) * 0.6
+		var is_deep_exit: bool = position.z > 5.0
+		var energy: float = float(entry[1]) * (0.98 if is_deep_exit else 0.6)
 		var phase: float = entry[2]
 		var lantern: Node3D = Node3D.new()
 		lantern.name = &"Lantern"
 		lantern.position = position
 		add_child(lantern)
 
-		var base_mesh: MeshInstance3D = _box_mesh(Vector3(0.7, 0.16, 0.7), STONE_COLOR)
-		base_mesh.position = Vector3(0.0, 0.08, 0.0)
-		lantern.add_child(base_mesh)
-
-		var post_mesh: MeshInstance3D = _cylinder_mesh(0.07, 0.09, 1.3, STONE_COLOR)
-		post_mesh.position = Vector3(0.0, 0.8, 0.0)
-		lantern.add_child(post_mesh)
-
-		var head_mesh: MeshInstance3D = _box_mesh(Vector3(0.34, 0.24, 0.34), LANTERN_COLOR, true)
-		head_mesh.position = Vector3(0.0, 1.55, 0.0)
-		lantern.add_child(head_mesh)
+		if is_deep_exit:
+			_build_deep_exit_lantern(lantern)
+		else:
+			var base_mesh: MeshInstance3D = _box_mesh(Vector3(0.7, 0.16, 0.7), STONE_COLOR)
+			base_mesh.position = Vector3(0.0, 0.08, 0.0)
+			lantern.add_child(base_mesh)
+			var post_mesh: MeshInstance3D = _cylinder_mesh(0.07, 0.09, 1.3, STONE_COLOR)
+			post_mesh.position = Vector3(0.0, 0.8, 0.0)
+			lantern.add_child(post_mesh)
+			var head_mesh: MeshInstance3D = _box_mesh(Vector3(0.34, 0.24, 0.34), LANTERN_COLOR, true)
+			head_mesh.position = Vector3(0.0, 1.55, 0.0)
+			lantern.add_child(head_mesh)
 
 		var light: OmniLight3D = OmniLight3D.new()
 		light.light_color = LANTERN_COLOR
 		light.light_energy = energy
-		light.omni_range = 5.8
-		light.omni_attenuation = 1.6
-		light.position = Vector3(0.0, 1.7, 0.0)
+		light.omni_range = 4.8 if is_deep_exit else 5.8
+		light.omni_attenuation = 1.85 if is_deep_exit else 1.6
+		light.shadow_enabled = is_deep_exit
+		light.shadow_opacity = 0.78
+		light.light_size = 0.12
+		light.position = Vector3(0.0, 1.34 if is_deep_exit else 1.7, 0.0)
 		lantern.add_child(light)
 		_lantern_lights.append(light)
 		_lantern_energy.append(energy)
 		_lantern_phases.append(phase)
 
 
+func _build_deep_exit_moon_pool() -> void:
+	var light := SpotLight3D.new()
+	light.name = &"DeepExitMoonPool"
+	light.position = Vector3(0.0, 7.0, 8.8)
+	light.rotation_degrees.x = -90.0
+	light.light_color = Color(0.42, 0.55, 0.6, 1.0)
+	light.light_energy = 2.65
+	light.light_size = 0.55
+	light.spot_range = 11.0
+	light.spot_angle = 38.0
+	light.spot_attenuation = 1.8
+	light.shadow_enabled = true
+	light.shadow_opacity = 0.72
+	add_child(light)
+
+
+func _build_deep_exit_lantern(lantern: Node3D) -> void:
+	var parts: Array[MeshInstance3D] = [
+		_cylinder_mesh(0.28, 0.36, 0.16, STONE_COLOR, 8),
+		_cylinder_mesh(0.1, 0.14, 0.9, STONE_COLOR, 8),
+		_cylinder_mesh(0.22, 0.26, 0.12, STONE_COLOR, 8),
+		_box_mesh(Vector3(0.3, 0.22, 0.3), LANTERN_COLOR, true),
+		_cylinder_mesh(0.16, 0.4, 0.22, STONE_COLOR, 4),
+		_cylinder_mesh(0.04, 0.09, 0.13, STONE_COLOR, 8),
+	]
+	var heights := [0.08, 0.58, 1.07, 1.25, 1.48, 1.66]
+	for index: int in parts.size():
+		parts[index].name = &"StonePart%d" % index
+		parts[index].position = Vector3(0.0, heights[index], 0.0)
+		lantern.add_child(parts[index])
+
+
 func _build_dust() -> void:
 	for entry: Array in DUST_EMITTERS:
 		var center: Vector3 = entry[0]
 		var extents: Vector3 = entry[1]
+		var is_deep_exit: bool = center.z > 5.0
 		var particles: GPUParticles3D = _make_particles(
-			center, extents, DUST_COLOR, 42, 6.0, Vector2(0.15, 0.5), Vector2(0.25, 0.7)
+			center, extents, DUST_COLOR, 20 if is_deep_exit else 42,
+			7.0 if is_deep_exit else 6.0,
+			Vector2(0.08, 0.28) if is_deep_exit else Vector2(0.15, 0.5),
+			Vector2(0.16, 0.42) if is_deep_exit else Vector2(0.25, 0.7)
 		)
 		particles.name = &"Dust"
 		add_child(particles)
@@ -158,12 +201,13 @@ func _make_particles(
 	return particles
 
 
-func _cylinder_mesh(top_radius: float, bottom_radius: float, height: float, color: Color) -> MeshInstance3D:
+func _cylinder_mesh(top_radius: float, bottom_radius: float, height: float, color: Color, radial_segments: int = 24) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	var cylinder_mesh := CylinderMesh.new()
 	cylinder_mesh.top_radius = top_radius
 	cylinder_mesh.bottom_radius = bottom_radius
 	cylinder_mesh.height = height
+	cylinder_mesh.radial_segments = radial_segments
 	mesh_instance.mesh = cylinder_mesh
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
