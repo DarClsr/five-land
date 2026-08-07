@@ -22,6 +22,7 @@
 - [角色素材合同](docs/art/character-asset-contract.md)
 - [无央 Q 版像素八方向渲染规范](docs/art/wuyang-hd2d-render-contract.md)
 - [素材生成提示词手册](docs/art/asset-prompt-guide.md)
+- [AI 素材工具评测](docs/art/ai-asset-tooling.md)
 - [术语表](docs/glossary.md)
 - [世界年表](docs/timeline.md)
 - [势力与阵营](docs/factions.md)
