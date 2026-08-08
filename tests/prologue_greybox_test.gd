@@ -79,6 +79,36 @@ func _run_test() -> void:
 	_expect(not boss_gate_collision.disabled, "boss gate starts with solid collision")
 	_expect((route.get_node("SmallBranch/Floor") as Node3D).position.x < -4.0, "small branch occupies the gate side wing")
 	_expect((route.get_node("MechanismBranch/Floor") as Node3D).position.x > 4.0, "mechanism branch occupies the courtyard side wing")
+	_expect(route.get_node_or_null("SealCourtyard/CourtyardTree") == null, "courtyard has no tall tree crossing the action layer")
+	_expect(route.has_node("SealCourtyard/LeftGuideLantern"), "expanded left wing has a readable light landmark")
+	_expect(route.has_node("SealCourtyard/LeftEchoStele"), "expanded left wing has an exploration landmark")
+	_expect(route.has_node("SealCourtyard/EntranceMarkerLeft"), "courtyard entrance widens through a ruined threshold")
+	_expect(route.get_node_or_null("SealCourtyard/CourtyardCrack") == null, "courtyard no longer has one solid black crack bar")
+	for crack_index: int in range(1, 4):
+		var crack := route.get_node("SealCourtyard/CourtyardCrack%d" % crack_index)
+		_expect(crack is MeshInstance3D and not crack is CollisionObject3D, "courtyard crack %d is short visual detail only" % crack_index)
+	for seal_index: int in range(1, 4):
+		var shadow := route.get_node("SealCourtyard/SealPost%d/ContactShadow" % seal_index) as MeshInstance3D
+		_expect(shadow.mesh is CylinderMesh, "seal post %d has a grounded contact shadow" % seal_index)
+		_expect(shadow.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "contact shadow does not double-cast lighting")
+	var expected_room_widths := {
+		"DeepExit": 14.2,
+		"XumenGate": 15.6,
+		"SealCourtyard": 18.2,
+		"BossArena": 23.4,
+	}
+	for room_name: String in expected_room_widths:
+		var room_floor := route.get_node("%s/Floor" % room_name) as StaticBody3D
+		var room_shape := room_floor.get_node("CollisionShape3D") as CollisionShape3D
+		_expect(
+			is_equal_approx((room_shape.shape as BoxShape3D).size.x, expected_room_widths[room_name]),
+			"%s gains real horizontal floor area" % room_name
+		)
+		_expect(room_floor.scale.is_equal_approx(Vector3.ONE), "%s floor tiles are not scaled" % room_name)
+	var small_branch_shape := (route.get_node("SmallBranch/Floor/CollisionShape3D") as CollisionShape3D).shape as BoxShape3D
+	var mechanism_branch_shape := (route.get_node("MechanismBranch/Floor/CollisionShape3D") as CollisionShape3D).shape as BoxShape3D
+	_expect(small_branch_shape.size.x >= 5.0, "small branch extends deeper with original-size terrain sampling")
+	_expect(mechanism_branch_shape.size.x >= 5.0, "mechanism branch extends deeper with original-size terrain sampling")
 	_expect(absf(bridge_floor.rotation_degrees.y - 30.0) < 0.1, "outer bridge advances on a thirty-degree diagonal")
 	_expect(absf(burial_floor.rotation_degrees.y + 30.0) < 0.1, "burial road reverses the diagonal")
 	_expect(absf(passage_floor.rotation_degrees.y - 50.0) < 0.1, "boss passage turns back across the composition")
@@ -131,7 +161,7 @@ func _run_test() -> void:
 	var floor_visual: MeshInstance3D = floor_body.get_node("Visual") as MeshInstance3D
 	var floor_material: ShaderMaterial = floor_visual.material_override as ShaderMaterial
 	_expect(floor_collision.shape is BoxShape3D, "greybox floor has primitive collision")
-	_expect((floor_collision.shape as BoxShape3D).size.x >= 11.0, "deep exit opens into a wider playable chamber")
+	_expect((floor_collision.shape as BoxShape3D).size.x >= 14.0, "deep exit opens into the expanded playable chamber")
 	_expect(floor_body.scale.is_equal_approx(Vector3.ONE), "greybox physics bodies are not scaled")
 	_expect(
 		(floor_material.get_shader_parameter(&"albedo_texture") as Texture2D).resource_path
@@ -267,12 +297,21 @@ func _run_test() -> void:
 		_expect(front_glow != null and front_glow.mesh is QuadMesh, "the gate approach keeps a rune glow pool")
 	var height_fog: FogVolume = atmosphere.get_node("BurialRoadHeightFog") as FogVolume
 	_expect(height_fog.material is ShaderMaterial, "burial road uses animated local height fog")
+	var cave_life := atmosphere.get_node("CaveLife") as Node3D
+	_expect(cave_life.get_node("SpiderWeb1") is MeshInstance3D, "courtyard has a lightweight procedural spider web")
+	_expect((cave_life.get_node("SpiderWeb1") as MeshInstance3D).mesh is ImmediateMesh, "spider web uses line geometry instead of a large texture")
+	_expect(cave_life.get_node("SpiderWeb3") is MeshInstance3D, "side branch has its own spider web")
+	for spider_index: int in range(1, 3):
+		var spider := cave_life.get_node("Spider%d" % spider_index) as Node3D
+		_expect(spider.has_node("Body") and spider.has_node("Head"), "decorative spider %d has a readable tiny silhouette" % spider_index)
+		_expect(spider.find_children("*", "CollisionObject3D", true, false).is_empty(), "decorative spider %d has no gameplay collision" % spider_index)
 
 	var world_environment: WorldEnvironment = level.get_node("WorldEnvironment") as WorldEnvironment
 	var environment: Environment = world_environment.environment
 	_expect(environment.ssao_enabled, "Forward+ environment enables SSAO contact shading")
 	_expect(not environment.ssr_enabled, "matte pixel cave does not spend GPU time on SSR")
-	_expect(environment.ambient_light_energy >= 0.15, "cold ambient fill keeps the courtyard readable")
+	_expect(environment.ambient_light_energy >= 0.19, "cold ambient fill keeps the courtyard readable")
+	_expect(environment.fog_density <= 0.005, "global fog does not wash the cave into flat grey")
 	_expect(environment.glow_bloom <= 0.12, "bloom stays below the restrained pixel-art limit")
 	_expect(environment.glow_hdr_threshold >= 1.0, "only deliberate HDR accents enter glow")
 	_expect(environment.tonemap_mode == 4, "environment uses AgX color mapping")
@@ -304,9 +343,12 @@ func _run_test() -> void:
 	)
 	_expect(edge_collision != null, "player sweep cannot cross the foreground map edge")
 	_expect(route.has_node("DepthSilhouettes/FarPillarLeft"), "far rock silhouettes reinforce depth")
+	_expect(route.has_node("DepthSilhouettes/OuterLeftNear"), "outer cave mass replaces the visible black void")
+	_expect(route.has_node("DepthSilhouettes/OuterRightDeep"), "outer cave mass continues around the deep route")
+	_expect(route.has_node("DepthSilhouettes/CourtyardOuterShelf"), "courtyard entrance void has a non-playable cave shelf")
 	var camera: Camera3D = level.get_node("FollowCameraRig/Camera3D") as Camera3D
 	var camera_bounds: Rect2 = level.camera_rig.get_movement_bounds()
-	_expect(level.camera_rig.foreground_rest_transparency >= 0.4, "idle foreground framing stays translucent")
+	_expect(level.camera_rig.foreground_rest_transparency >= 0.85, "idle foreground framing exposes the expanded floor")
 	_expect(
 		camera_bounds.is_equal_approx(PrologueGreyboxController.CAMERA_BOUNDS[&"DeepExit"]),
 		"camera starts inside the authored deep-exit bounds"
@@ -347,7 +389,7 @@ func _run_test() -> void:
 	_expect(level.get_current_zone() == &"XumenGate", "entering the gate updates the current zone")
 	_expect(level.objective_label.text.contains("送葬道"), "gate zone exposes the next route objective")
 
-	player.global_position = Vector3(-8.0, 0.0, -5.5)
+	player.global_position = Vector3(-10.8, 0.0, -5.5)
 	player.reset_physics_interpolation()
 	for _frame: int in range(3):
 		await physics_frame
@@ -363,12 +405,12 @@ func _run_test() -> void:
 	for _frame: int in range(3):
 		await physics_frame
 
-	player.global_position = Vector3(8.0, 0.0, -25.0)
+	player.global_position = Vector3(12.0, 0.0, -25.0)
 	player.reset_physics_interpolation()
 	for _frame: int in range(3):
 		await physics_frame
 	_expect(level.get_resolved_seal_count() == 2, "the mechanism branch resolves the second seal")
-	_expect(level.objective_label.text.contains("已经开放"), "both seals expose the boss route objective")
+	_expect(level.objective_label.text.contains("两枚封印已解除"), "both seals expose the boss route objective")
 	_expect(
 		gate_controller.state == BOSS_GATE_CONTROLLER_SCRIPT.State.OPENED,
 		"both seals open the boss gate state"

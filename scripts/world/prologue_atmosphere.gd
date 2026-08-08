@@ -30,38 +30,48 @@ const TORCH_SPARK_COUNT: int = 7
 const DUST_PARTICLE_COUNT: int = 96
 const CORRUPTION_PARTICLE_COUNT: int = 72
 const RUNE_COLOR: Color = Color(0.28, 0.82, 0.78, 1.0)
+const WEB_COLOR: Color = Color(0.68, 0.72, 0.68, 0.42)
+const WEB_POSITIONS: Array = [
+	[Vector3(-1.15, 0.24, -29.15), Vector3(0.0, 18.0, -4.0), 0.72],
+	[Vector3(8.55, 0.28, -29.65), Vector3(0.0, -22.0, 3.0), 0.65],
+	[Vector3(-11.45, 0.35, -6.35), Vector3(0.0, 12.0, -6.0), 0.62],
+]
+const SPIDER_PATHS: Array = [
+	[Vector3(-1.55, 0.07, -28.2), Vector3(-3.65, 0.07, -30.15), 0.18],
+	[Vector3(9.05, 0.07, -25.55), Vector3(12.25, 0.07, -24.75), 0.67],
+]
 
 ## Lantern rhythm: [position, base_energy, phase, lit]. Paired lamps mark the
 ## bridge thresholds; single lamps alternate along the safe route, while the
 ## last pair at the far bridge threshold has gone dark.
 const LANTERNS: Array = [
-	[Vector3(-2.85, 0.0, 8.65), 2.25, 0.0, true],
-	[Vector3(2.85, 0.0, 7.55), 2.15, 1.3, true],
+	[Vector3(-4.4, 0.0, 8.65), 2.25, 0.0, true],
+	[Vector3(4.4, 0.0, 7.55), 2.15, 1.3, true],
 	[Vector3(-0.45, 0.0, 3.25), 2.0, 2.6, true],
 	[Vector3(-3.55, 0.0, -3.25), 2.0, 3.9, true],
-	[Vector3(-5.3, 0.0, -5.0), 1.85, 0.7, true],
+	[Vector3(-7.0, 0.0, -5.0), 1.85, 0.7, true],
 	[Vector3(-2.2, 0.0, -8.8), 1.9, 2.0, true],
 	[Vector3(-5.6, 0.0, -9.2), 0.0, 3.3, false],
 	[Vector3(-2.1, 0.0, -10.1), 0.0, 4.6, false],
-	[Vector3(-7.8, 0.0, -7.1), 2.35, 1.1, true],
+	[Vector3(-10.0, 0.0, -7.1), 2.35, 1.1, true],
 	[Vector3(-2.4, 0.0, -13.0), 1.9, 2.4, true],
 	[Vector3(2.1, 0.0, -20.8), 1.8, 3.7, true],
-	[Vector3(9.25, 0.0, -27.1), 2.25, 5.0, true],
-	[Vector3(2.3, 0.0, -25.9), 1.9, 2.9, true],
+	[Vector3(11.7, 0.0, -27.1), 2.25, 5.0, true],
+	[Vector3(0.3, 0.0, -25.9), 1.9, 2.9, true],
 	[Vector3(4.0, 0.0, -29.2), 1.95, 4.2, true],
 	[Vector3(1.2, 0.0, -34.0), 1.25, 1.9, true],
-	[Vector3(5.0, 0.0, -44.4), 2.6, 3.2, true],
+	[Vector3(7.7, 0.0, -44.4), 2.6, 3.2, true],
 ]
 
 const DUST_EMITTERS: Array = [
-	[Vector3(0.0, 0.65, 8.0), Vector3(4.2, 0.45, 3.5)],
+	[Vector3(0.0, 0.65, 8.0), Vector3(6.2, 0.45, 3.5)],
 	[Vector3(0.0, 0.8, -16.5), Vector3(10.0, 0.6, 16.0)],
-	[Vector3(4.0, 0.8, -27.0), Vector3(14.0, 0.6, 10.0)],
+	[Vector3(4.0, 0.8, -27.0), Vector3(18.0, 0.6, 10.0)],
 ]
 
 const CORRUPTION_EMITTERS: Array = [
-	[Vector3(-5.0, 0.8, -44.0), Vector3(4.0, 1.0, 4.0)],
-	[Vector3(1.0, 0.8, -45.5), Vector3(4.0, 1.0, 4.0)],
+	[Vector3(-8.0, 0.8, -44.0), Vector3(5.0, 1.0, 4.0)],
+	[Vector3(4.0, 0.8, -45.5), Vector3(5.0, 1.0, 4.0)],
 	[Vector3(-2.0, 0.8, -47.0), Vector3(3.0, 1.0, 3.0)],
 ]
 
@@ -77,6 +87,10 @@ var _guide_lights: Array[OmniLight3D] = []
 var _rune_visuals: Array[Sprite3D] = []
 var _rune_base_modulates: Array[Color] = []
 var _mechanism_visuals: Array[Sprite3D] = []
+var _webs: Array[Node3D] = []
+var _spiders: Array[Node3D] = []
+var _spider_progress: Array[float] = []
+var _spider_direction: Array[float] = []
 var _time: float = 0.0
 var _light_cull_time: float = 0.0
 var _camera: Camera3D
@@ -94,6 +108,7 @@ func _ready() -> void:
 	_build_boss_gate_guidance()
 	_build_dust()
 	_build_corruption()
+	_build_cave_life()
 	_cache_player_material()
 	_update_effect_visibility()
 
@@ -127,6 +142,7 @@ func _process(delta: float) -> void:
 			glow_material.emission_energy_multiplier = 0.38 * flicker
 	_update_runes_and_mechanisms()
 	_update_player_torch_influence()
+	_update_cave_life(delta)
 
 
 func _update_lantern_visibility() -> void:
@@ -555,6 +571,143 @@ func _update_player_torch_influence() -> void:
 	_player_material.set_shader_parameter(
 		&"warm_light_strength", lerpf(0.1, 0.38, smoothstep(0.0, 1.0, influence))
 	)
+
+
+func _build_cave_life() -> void:
+	var life := Node3D.new()
+	life.name = &"CaveLife"
+	add_child(life)
+	for index: int in WEB_POSITIONS.size():
+		var entry: Array = WEB_POSITIONS[index]
+		var web := _build_spider_web(float(entry[2]))
+		web.name = StringName("SpiderWeb%d" % (index + 1))
+		web.position = entry[0]
+		web.rotation_degrees = entry[1]
+		web.set_meta(&"base_rotation_z", web.rotation_degrees.z)
+		web.set_meta(&"phase", float(index) * 1.7)
+		life.add_child(web)
+		_webs.append(web)
+	for index: int in SPIDER_PATHS.size():
+		var entry: Array = SPIDER_PATHS[index]
+		var spider := _build_spider()
+		spider.name = StringName("Spider%d" % (index + 1))
+		spider.position = entry[0]
+		spider.set_meta(&"path_start", entry[0])
+		spider.set_meta(&"path_end", entry[1])
+		life.add_child(spider)
+		_spiders.append(spider)
+		_spider_progress.append(float(entry[2]))
+		_spider_direction.append(1.0)
+
+
+func _build_spider_web(radius: float) -> MeshInstance3D:
+	var web := MeshInstance3D.new()
+	web.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh := ImmediateMesh.new()
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = WEB_COLOR
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES, material)
+	const SPOKES: int = 6
+	for spoke: int in range(SPOKES):
+		var angle: float = (PI * 0.5) * float(spoke) / float(SPOKES - 1)
+		_add_web_strand(
+			mesh, Vector2.ZERO, Vector2(cos(angle), sin(angle)) * radius, 0.018
+		)
+	for ring: float in [0.32, 0.58, 0.82]:
+		for spoke: int in range(SPOKES - 1):
+			var angle_a: float = (PI * 0.5) * float(spoke) / float(SPOKES - 1)
+			var angle_b: float = (PI * 0.5) * float(spoke + 1) / float(SPOKES - 1)
+			_add_web_strand(
+				mesh,
+				Vector2(cos(angle_a), sin(angle_a)) * radius * ring,
+				Vector2(cos(angle_b), sin(angle_b)) * radius * ring,
+				0.014
+			)
+	mesh.surface_end()
+	web.mesh = mesh
+	return web
+
+
+func _add_web_strand(mesh: ImmediateMesh, start: Vector2, end: Vector2, thickness: float) -> void:
+	var direction: Vector2 = (end - start).normalized()
+	var normal := Vector2(-direction.y, direction.x) * thickness * 0.5
+	for point: Vector2 in [start - normal, end - normal, end + normal, start - normal, end + normal, start + normal]:
+		mesh.surface_set_color(WEB_COLOR)
+		mesh.surface_add_vertex(Vector3(point.x, point.y, 0.0))
+
+
+func _build_spider() -> Node3D:
+	var spider := Node3D.new()
+	var spider_material := StandardMaterial3D.new()
+	spider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	spider_material.albedo_color = Color(0.2, 0.065, 0.035, 1.0)
+	spider_material.emission_enabled = true
+	spider_material.emission = Color(0.06, 0.012, 0.006, 1.0)
+	spider_material.emission_energy_multiplier = 0.35
+	var body := _box_mesh(Vector3(0.15, 0.075, 0.2), Color(0.075, 0.055, 0.045, 1.0))
+	body.name = &"Body"
+	body.position.y = 0.055
+	body.material_override = spider_material
+	spider.add_child(body)
+	var head := _box_mesh(Vector3(0.11, 0.065, 0.1), Color(0.11, 0.065, 0.045, 1.0))
+	head.name = &"Head"
+	head.position = Vector3(0.0, 0.052, -0.13)
+	head.material_override = spider_material
+	spider.add_child(head)
+	for side: float in [-1.0, 1.0]:
+		for leg_index: int in range(4):
+			var leg := _box_mesh(Vector3(0.018, 0.018, 0.16), Color(0.055, 0.045, 0.04, 1.0))
+			leg.position = Vector3(side * 0.1, 0.035, -0.075 + float(leg_index) * 0.05)
+			leg.rotation_degrees.y = side * (48.0 + float(leg_index) * 10.0)
+			leg.material_override = spider_material
+			spider.add_child(leg)
+	return spider
+
+
+func _update_cave_life(delta: float) -> void:
+	if _camera == null or not is_instance_valid(_camera):
+		return
+	var active_distance_squared: float = EFFECT_DISTANCE * EFFECT_DISTANCE
+	for web: Node3D in _webs:
+		var in_range: bool = web.global_position.distance_squared_to(_camera.global_position) <= active_distance_squared
+		web.visible = in_range
+		if in_range:
+			var phase: float = float(web.get_meta(&"phase", 0.0))
+			var sway: float = sin(_time * 0.62 + phase)
+			web.rotation_degrees.z = float(web.get_meta(&"base_rotation_z", 0.0)) + sway * 0.65
+			web.scale = Vector3(1.0 - sway * 0.006, 1.0 + sway * 0.012, 1.0)
+	for index: int in _spiders.size():
+		var spider: Node3D = _spiders[index]
+		var in_range: bool = spider.global_position.distance_squared_to(_camera.global_position) <= active_distance_squared
+		spider.visible = in_range
+		if not in_range:
+			continue
+		var path_start: Vector3 = spider.get_meta(&"path_start")
+		var path_end: Vector3 = spider.get_meta(&"path_end")
+		var speed: float = 0.11
+		if _player != null and is_instance_valid(_player) and spider.global_position.distance_to(_player.global_position) < 2.5:
+			speed = 0.62
+			_spider_direction[index] = (
+				1.0
+				if _player.global_position.distance_squared_to(path_end)
+					> _player.global_position.distance_squared_to(path_start)
+				else -1.0
+			)
+		_spider_progress[index] += _spider_direction[index] * speed * delta
+		if _spider_progress[index] >= 1.0:
+			_spider_progress[index] = 1.0
+			_spider_direction[index] = -1.0
+		elif _spider_progress[index] <= 0.0:
+			_spider_progress[index] = 0.0
+			_spider_direction[index] = 1.0
+		spider.position = path_start.lerp(path_end, _spider_progress[index])
+		spider.position.y += sin(_time * 8.0 + float(index)) * 0.006
+		var direction: Vector3 = (path_end - path_start) * _spider_direction[index]
+		spider.rotation.y = atan2(direction.x, direction.z)
 
 
 func _build_dust() -> void:

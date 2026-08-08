@@ -13,13 +13,13 @@ const GREYBOX_ROUTE_SCRIPT = preload("res://scripts/world/greybox_route.gd")
 ## keep the orthographic frame inside authored canyon walls while allowing the
 ## player to traverse each complete gameplay section.
 const CAMERA_BOUNDS: Dictionary[StringName, Rect2] = {
-	&"DeepExit": Rect2(-1.0, -4.2, 2.0, 13.2),
-	&"XumenGate": Rect2(-6.5, -10.5, 5.0, 7.0),
-	&"SmallBranch": Rect2(-9.5, -9.0, 7.5, 6.0),
+	&"DeepExit": Rect2(-2.8, -4.2, 5.6, 13.2),
+	&"XumenGate": Rect2(-9.0, -10.5, 10.0, 7.0),
+	&"SmallBranch": Rect2(-11.5, -9.0, 8.0, 6.0),
 	&"BurialRoad": Rect2(-4.2, -24.0, 8.4, 14.5),
-	&"SealCourtyard": Rect2(-1.5, -32.0, 11.0, 10.0),
-	&"MechanismBranch": Rect2(2.0, -31.0, 8.0, 8.0),
-	&"BossArena": Rect2(-4.5, -50.0, 5.0, 13.0),
+	&"SealCourtyard": Rect2(-4.0, -32.0, 16.0, 10.0),
+	&"MechanismBranch": Rect2(5.0, -31.0, 8.5, 8.0),
+	&"BossArena": Rect2(-9.0, -50.0, 14.0, 13.0),
 }
 const ZONE_DIRECTIONS: Dictionary[StringName, Vector3] = {
 	&"DeepExit": Vector3(-0.5, 0.0, -0.866),

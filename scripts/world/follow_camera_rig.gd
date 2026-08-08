@@ -12,7 +12,7 @@ extends Node3D
 @export_range(0.0, 2.0, 0.05) var idle_forward_offset: float = 0.55
 @export_range(0.0, 2.0, 0.05) var movement_look_ahead: float = 1.0
 @export_range(0.5, 12.0, 0.1) var look_ahead_speed: float = 4.0
-@export_range(0.0, 1.0, 0.05) var foreground_rest_transparency: float = 0.58
+@export_range(0.0, 1.0, 0.05) var foreground_rest_transparency: float = 0.86
 @export_range(0.0, 1.0, 0.05) var foreground_blocking_transparency: float = 0.94
 @export_range(1.0, 12.0, 0.1) var foreground_fade_speed: float = 5.0
 @export_range(100.0, 400.0, 10.0) var foreground_fade_radius: float = 280.0
