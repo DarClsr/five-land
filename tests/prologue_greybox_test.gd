@@ -160,6 +160,12 @@ func _run_test() -> void:
 	_expect(route.has_node("VoidBoundary/RightDissolve0"), "right floor edge dissolves into boundary fog")
 	_expect(route.has_node("VoidBoundary/RearDissolve"), "rear route edge dissolves into boundary fog")
 	_expect(route.has_node("VoidBoundary/ForegroundCliff0"), "foreground cliff hides the rectangular floor end")
+	var foreground_cliff := route.get_node("VoidBoundary/ForegroundCliff0") as MeshInstance3D
+	_expect(
+		foreground_cliff.is_in_group(&"camera_foreground")
+			and foreground_cliff.transparency >= 0.15,
+		"foreground framing can fade without becoming a solid black wall"
+	)
 	_expect(route.has_node("NavigationBoundaries/LeftWall0"), "route has a solid left gameplay boundary")
 	_expect(route.has_node("NavigationBoundaries/RightWall1"), "bridge has a solid right gameplay boundary")
 	_expect(route.has_node("NavigationBoundaries/LeftShoulder0"), "wide rooms close around narrow corridor seams")
@@ -184,14 +190,18 @@ func _run_test() -> void:
 	for _frame: int in range(12):
 		await process_frame
 	_expect(
-		absf(level.camera_rig.global_position.z - player.global_position.z) < 0.35,
-		"distance-adaptive camera catches up smoothly during sustained movement"
+		absf(level.camera_rig.global_position.z - player.global_position.z) < 0.75,
+		"camera settles into its forward-biased exploration composition"
+	)
+	_expect(
+		level.camera_rig.get_look_ahead_offset().z < -0.35,
+		"idle composition reserves screen space along the prologue route"
 	)
 	player.global_transform = player_spawn_transform
 	player.reset_physics_interpolation()
 	level.camera_rig.set_target(player, true)
 	var camera_attributes := camera.attributes as CameraAttributesPractical
-	_expect(camera_attributes.exposure_multiplier >= 1.0, "cave exposure floor stays at or above neutral")
+	_expect(camera_attributes.exposure_multiplier >= 1.05, "cave action layer stays readable")
 	_expect(not camera_attributes.auto_exposure_enabled, "cave exposure stays stable without brightness pumping")
 	_expect(camera_attributes.dof_blur_near_enabled, "diorama DOF softens the foreground")
 	_expect(camera_attributes.dof_blur_far_enabled, "diorama DOF softens the distant background")

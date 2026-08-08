@@ -86,8 +86,10 @@ func _init() -> void:
 		var post_material := container.material as ShaderMaterial
 		_expect(
 			post_material != null
-				and float(post_material.get_shader_parameter(&"vignette_strength")) >= 0.25,
-			"runtime applies a global vignette that conceals frame edges"
+				and is_equal_approx(
+					float(post_material.get_shader_parameter(&"vignette_strength")), 0.16
+				),
+			"runtime vignette frames the scene without concealing navigation"
 		)
 		if camera != null:
 			_expect(
@@ -97,7 +99,7 @@ func _init() -> void:
 			_expect(
 				camera.position.is_equal_approx(Vector3(0.0, 12.0, 10.0))
 					and camera.basis.x.is_equal_approx(Vector3.RIGHT)
-					and is_equal_approx(camera.size, 6.2),
+					and is_equal_approx(camera.size, 7.0),
 				"runtime camera uses the exploration three-quarter view"
 			)
 			_expect(camera.attributes != null, "runtime camera has diorama depth of field")
@@ -107,14 +109,22 @@ func _init() -> void:
 				"follow camera catches up during fast movement and settles without jitter"
 			)
 			_expect(
-				is_equal_approx(rig.presentation_size, 6.2)
-					and is_equal_approx(rig.combat_size, 5.2),
+				is_equal_approx(rig.presentation_size, 7.0)
+					and is_equal_approx(rig.combat_size, 6.2)
+					and is_equal_approx(rig.boss_size, 7.8),
 				"camera exposes exploration and combat framing sizes"
 			)
+			_expect(
+				is_equal_approx(rig.idle_forward_offset, 0.55)
+					and is_equal_approx(rig.movement_look_ahead, 1.0),
+				"camera reserves screen space ahead of the player"
+			)
 			rig.enter_combat()
-			_expect(is_equal_approx(rig.presentation_size, 5.2), "combat framing tightens the view")
+			_expect(is_equal_approx(rig.presentation_size, 6.2), "combat framing tightens the view")
+			rig.enter_boss()
+			_expect(is_equal_approx(rig.presentation_size, 7.8), "boss framing shows the full arena")
 			rig.exit_combat()
-			_expect(is_equal_approx(rig.presentation_size, 6.2), "exploration framing restores the wide view")
+			_expect(is_equal_approx(rig.presentation_size, 7.0), "exploration framing restores the wide view")
 	runtime.free()
 	if failures == 0:
 		print("PASS: HD-2D runtime")

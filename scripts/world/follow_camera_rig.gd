@@ -5,9 +5,16 @@ extends Node3D
 @export_range(0.1, 30.0, 0.1) var follow_speed: float = 9.5
 @export_range(0.0, 12.0, 0.1) var catchup_speed: float = 3.5
 @export_range(0.0001, 0.05, 0.0001) var settle_distance: float = 0.002
-@export_range(4.0, 7.5, 0.05) var presentation_size: float = 6.2
-@export_range(4.0, 7.5, 0.05) var combat_size: float = 5.2
+@export_range(4.0, 8.5, 0.05) var presentation_size: float = 7.0
+@export_range(4.0, 8.5, 0.05) var combat_size: float = 6.2
+@export_range(4.0, 8.5, 0.05) var boss_size: float = 7.8
 @export_range(0.2, 10.0, 0.1) var zoom_speed: float = 3.0
+@export_range(0.0, 2.0, 0.05) var idle_forward_offset: float = 0.55
+@export_range(0.0, 2.0, 0.05) var movement_look_ahead: float = 1.0
+@export_range(0.5, 12.0, 0.1) var look_ahead_speed: float = 4.0
+@export_range(0.0, 1.0, 0.05) var foreground_rest_transparency: float = 0.18
+@export_range(0.0, 1.0, 0.05) var foreground_blocking_transparency: float = 0.68
+@export_range(1.0, 12.0, 0.1) var foreground_fade_speed: float = 5.0
 @export_range(0.5, 8.0, 0.1) var focus_half_width: float = 3.2
 @export_range(1.0, 12.0, 0.1) var far_blur_transition: float = 6.0
 ## Seconds the clamped result crossfades after zone bounds switch.
@@ -18,12 +25,22 @@ var _last_focus_distance: float = -1.0
 var _movement_bounds: Rect2 = Rect2(-100000.0, -100000.0, 200000.0, 200000.0)
 var _previous_bounds: Rect2 = _movement_bounds
 var _bounds_blend: float = 1.0
-var _exploration_size: float = 6.2
+var _exploration_size: float = 7.0
+var _look_ahead_offset: Vector3 = Vector3.ZERO
+var _foreground_occluders: Array[MeshInstance3D] = []
 @onready var _camera: Camera3D = $Camera3D
 
 
 func _ready() -> void:
 	_exploration_size = presentation_size
+	_refresh_foreground_occluders()
+
+
+func _refresh_foreground_occluders() -> void:
+	_foreground_occluders.clear()
+	for node: Node in get_tree().get_nodes_in_group(&"camera_foreground"):
+		if node is MeshInstance3D:
+			_foreground_occluders.append(node as MeshInstance3D)
 
 
 func _process(delta: float) -> void:
@@ -32,17 +49,21 @@ func _process(delta: float) -> void:
 		_camera.size = lerpf(_camera.size, presentation_size, zoom_weight)
 	if not is_instance_valid(_target):
 		return
+	var look_ahead_weight: float = 1.0 - exp(-look_ahead_speed * delta)
+	_look_ahead_offset = _look_ahead_offset.lerp(_desired_look_ahead(), look_ahead_weight)
 	var target_position: Vector3 = _bounded_position(
-		_target.get_global_transform_interpolated().origin, delta
+		_target.get_global_transform_interpolated().origin + _look_ahead_offset, delta
 	)
-	## 玩家移动逐帧刚性同步；区域交叉过渡只发生在 _bounded_position 的钳制结果中。
+	## Follow the composed target rigidly; only look-ahead and zone bounds ease.
 	global_position = target_position
+	_update_foreground_fade(delta)
 	_update_player_focus()
 
 
 func set_target(target: Node3D, snap: bool = true) -> void:
 	_target = target
 	if snap and is_instance_valid(_target):
+		_look_ahead_offset = Vector3.ZERO
 		global_position = _bounded_position(_target.global_position)
 		reset_physics_interpolation()
 		_update_player_focus()
@@ -56,6 +77,10 @@ func enter_combat() -> void:
 	presentation_size = combat_size
 
 
+func enter_boss() -> void:
+	presentation_size = boss_size
+
+
 func exit_combat() -> void:
 	presentation_size = _exploration_size
 
@@ -66,6 +91,7 @@ func snap_to_target() -> void:
 	if not is_instance_valid(_target):
 		return
 	_bounds_blend = 1.0
+	_look_ahead_offset = Vector3.ZERO
 	global_position = _clamp_to_rect(_target.global_position, _movement_bounds)
 	reset_physics_interpolation()
 	_update_player_focus()
@@ -81,6 +107,50 @@ func set_movement_bounds(bounds: Rect2) -> void:
 
 func get_movement_bounds() -> Rect2:
 	return _movement_bounds
+
+
+func get_look_ahead_offset() -> Vector3:
+	return _look_ahead_offset
+
+
+func _desired_look_ahead() -> Vector3:
+	var body := _target as CharacterBody3D
+	if body != null:
+		var planar_velocity := Vector3(body.velocity.x, 0.0, body.velocity.z)
+		if planar_velocity.length_squared() > 0.01:
+			return planar_velocity.normalized() * movement_look_ahead
+	## The prologue route advances toward negative Z. This idle composition keeps
+	## the player slightly low in frame while still allowing full directional
+	## look-ahead as soon as movement begins.
+	return Vector3(0.0, 0.0, -idle_forward_offset)
+
+
+func _update_foreground_fade(delta: float) -> void:
+	if _camera == null or not is_instance_valid(_target):
+		return
+	if _foreground_occluders.is_empty():
+		_refresh_foreground_occluders()
+	var player_screen: Vector2 = _camera.unproject_position(
+		_target.global_position + Vector3.UP * 0.9
+	)
+	var player_distance: float = _camera.global_position.distance_to(_target.global_position)
+	var fade_weight: float = 1.0 - exp(-foreground_fade_speed * delta)
+	for occluder: MeshInstance3D in _foreground_occluders:
+		if not is_instance_valid(occluder):
+			continue
+		var occluder_screen: Vector2 = _camera.unproject_position(occluder.global_position)
+		var lies_in_front: bool = (
+			_camera.global_position.distance_to(occluder.global_position) < player_distance
+		)
+		var overlaps_player: bool = occluder_screen.distance_to(player_screen) < 150.0
+		var target_transparency: float = (
+			foreground_blocking_transparency
+			if lies_in_front and overlaps_player
+			else foreground_rest_transparency
+		)
+		occluder.transparency = lerpf(
+			occluder.transparency, target_transparency, fade_weight
+		)
 
 
 func _bounded_position(world_position: Vector3, delta: float = 0.0) -> Vector3:

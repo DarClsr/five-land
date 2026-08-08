@@ -110,7 +110,7 @@ func _update_zone(zone_name: StringName) -> void:
 	if CAMERA_BOUNDS.has(zone_name):
 		camera_rig.set_movement_bounds(CAMERA_BOUNDS[zone_name])
 	if zone_name == &"BossArena":
-		camera_rig.enter_combat()
+		camera_rig.enter_boss()
 	var display_name: String = ZONE_TITLES[zone_name]
 	var objective: String = ZONE_OBJECTIVES[zone_name]
 	zone_label.text = "区域：%s" % display_name

@@ -501,7 +501,7 @@ func _add_organic_cliff(
 	size: Vector3,
 	yaw: float,
 	darken: float = 0.2
-) -> void:
+) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = block_name
 	mesh_instance.position = center
@@ -514,6 +514,7 @@ func _add_organic_cliff(
 	mesh_instance.material_override = _get_organic_rock_material(size, darken)
 	mesh_instance.rotation_degrees = Vector3(0.0, yaw, 0.0)
 	parent.add_child(mesh_instance)
+	return mesh_instance
 
 
 func _create_section(
@@ -1128,17 +1129,19 @@ func _build_void_boundaries() -> void:
 	)
 	## A broken cliff face hides the rectangular end of the starting floor.
 	## Its uneven silhouette gives the foreground dissolve a physical source.
-	var foreground_x_positions: Array[float] = [-6.0, -4.75, 4.75, 6.0]
+	var foreground_x_positions: Array[float] = [-6.6, -5.35, 5.35, 6.6]
 	for index: int in foreground_x_positions.size():
-		var height: float = _rng.randf_range(1.35, 1.95)
-		_add_organic_cliff(
+		var height: float = _rng.randf_range(0.9, 1.35)
+		var foreground_cliff := _add_organic_cliff(
 			boundary,
 			StringName("ForegroundCliff%d" % index),
-			Vector3(foreground_x_positions[index], -height * 0.5, 12.8 + _rng.randf_range(-0.15, 0.2)),
-			Vector3(1.35, height, 1.35),
+			Vector3(foreground_x_positions[index], -height * 0.5, 12.95 + _rng.randf_range(-0.12, 0.15)),
+			Vector3(1.05, height, 1.15),
 			_rng.randf_range(-7.0, 7.0),
-			0.72
+			0.58
 		)
+		foreground_cliff.add_to_group(&"camera_foreground")
+		foreground_cliff.transparency = 0.18
 
 
 func _add_void_edge(
