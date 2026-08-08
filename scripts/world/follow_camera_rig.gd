@@ -13,8 +13,9 @@ extends Node3D
 @export_range(0.0, 2.0, 0.05) var movement_look_ahead: float = 1.0
 @export_range(0.5, 12.0, 0.1) var look_ahead_speed: float = 4.0
 @export_range(0.0, 1.0, 0.05) var foreground_rest_transparency: float = 0.18
-@export_range(0.0, 1.0, 0.05) var foreground_blocking_transparency: float = 0.68
+@export_range(0.0, 1.0, 0.05) var foreground_blocking_transparency: float = 0.9
 @export_range(1.0, 12.0, 0.1) var foreground_fade_speed: float = 5.0
+@export_range(100.0, 400.0, 10.0) var foreground_fade_radius: float = 280.0
 @export_range(0.5, 8.0, 0.1) var focus_half_width: float = 3.2
 @export_range(1.0, 12.0, 0.1) var far_blur_transition: float = 6.0
 ## Seconds the clamped result crossfades after zone bounds switch.
@@ -27,6 +28,7 @@ var _previous_bounds: Rect2 = _movement_bounds
 var _bounds_blend: float = 1.0
 var _exploration_size: float = 7.0
 var _look_ahead_offset: Vector3 = Vector3.ZERO
+var _idle_forward_direction: Vector3 = Vector3.FORWARD
 var _foreground_occluders: Array[MeshInstance3D] = []
 @onready var _camera: Camera3D = $Camera3D
 
@@ -113,16 +115,22 @@ func get_look_ahead_offset() -> Vector3:
 	return _look_ahead_offset
 
 
+func set_idle_forward_direction(direction: Vector3) -> void:
+	var planar_direction := Vector3(direction.x, 0.0, direction.z)
+	if planar_direction.length_squared() < 0.001:
+		return
+	_idle_forward_direction = planar_direction.normalized()
+
+
 func _desired_look_ahead() -> Vector3:
 	var body := _target as CharacterBody3D
 	if body != null:
 		var planar_velocity := Vector3(body.velocity.x, 0.0, body.velocity.z)
 		if planar_velocity.length_squared() > 0.01:
 			return planar_velocity.normalized() * movement_look_ahead
-	## The prologue route advances toward negative Z. This idle composition keeps
-	## the player slightly low in frame while still allowing full directional
-	## look-ahead as soon as movement begins.
-	return Vector3(0.0, 0.0, -idle_forward_offset)
+	## Each zone supplies its authored route heading so diagonal sections reserve
+	## screen space toward the next landmark even while the player is stationary.
+	return _idle_forward_direction * idle_forward_offset
 
 
 func _update_foreground_fade(delta: float) -> void:
@@ -142,7 +150,11 @@ func _update_foreground_fade(delta: float) -> void:
 		var lies_in_front: bool = (
 			_camera.global_position.distance_to(occluder.global_position) < player_distance
 		)
-		var overlaps_player: bool = occluder_screen.distance_to(player_screen) < 150.0
+		var projected_bounds: Rect2 = _projected_screen_bounds(occluder)
+		var overlaps_player: bool = (
+			projected_bounds.grow(48.0).has_point(player_screen)
+			or occluder_screen.distance_to(player_screen) < foreground_fade_radius
+		)
 		var target_transparency: float = (
 			foreground_blocking_transparency
 			if lies_in_front and overlaps_player
@@ -151,6 +163,20 @@ func _update_foreground_fade(delta: float) -> void:
 		occluder.transparency = lerpf(
 			occluder.transparency, target_transparency, fade_weight
 		)
+
+
+func _projected_screen_bounds(occluder: MeshInstance3D) -> Rect2:
+	var local_bounds: AABB = occluder.get_aabb()
+	var first_point: Vector2 = _camera.unproject_position(
+		occluder.global_transform * local_bounds.get_endpoint(0)
+	)
+	var bounds := Rect2(first_point, Vector2.ZERO)
+	for endpoint_index: int in range(1, 8):
+		var screen_point: Vector2 = _camera.unproject_position(
+			occluder.global_transform * local_bounds.get_endpoint(endpoint_index)
+		)
+		bounds = bounds.expand(screen_point)
+	return bounds
 
 
 func _bounded_position(world_position: Vector3, delta: float = 0.0) -> Vector3:

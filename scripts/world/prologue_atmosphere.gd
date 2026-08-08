@@ -21,30 +21,30 @@ const LANTERN_GRATE_TEXTURE: Texture2D = preload("res://assets/textures/terrain/
 const LANTERNS: Array = [
 	[Vector3(-2.85, 0.0, 8.65), 2.25, 0.0, true],
 	[Vector3(2.85, 0.0, 7.55), 2.15, 1.3, true],
-	[Vector3(-1.24, 0.0, 3.35), 2.0, 2.6, true],
-	[Vector3(1.24, 0.0, 3.35), 2.0, 3.9, true],
-	[Vector3(-1.26, 0.0, 0.75), 1.85, 0.7, true],
-	[Vector3(1.26, 0.0, -1.35), 1.9, 2.0, true],
-	[Vector3(-1.24, 0.0, -3.35), 0.0, 3.3, false],
-	[Vector3(1.24, 0.0, -3.35), 0.0, 4.6, false],
-	[Vector3(-2.7, 0.0, -7.2), 2.35, 1.1, true],
-	[Vector3(1.9, 0.0, -14.0), 1.9, 2.4, true],
-	[Vector3(-1.9, 0.0, -20.5), 1.8, 3.7, true],
-	[Vector3(5.25, 0.0, -29.1), 2.25, 5.0, true],
-	[Vector3(-1.28, 0.0, -37.0), 1.6, 1.9, true],
-	[Vector3(6.0, 0.0, -47.4), 2.6, 3.2, true],
+	[Vector3(-0.45, 0.0, 3.25), 2.0, 2.6, true],
+	[Vector3(-3.55, 0.0, -3.25), 2.0, 3.9, true],
+	[Vector3(-5.3, 0.0, -5.0), 1.85, 0.7, true],
+	[Vector3(-2.2, 0.0, -8.8), 1.9, 2.0, true],
+	[Vector3(-5.6, 0.0, -9.2), 0.0, 3.3, false],
+	[Vector3(-2.1, 0.0, -10.1), 0.0, 4.6, false],
+	[Vector3(-7.8, 0.0, -7.1), 2.35, 1.1, true],
+	[Vector3(-2.4, 0.0, -13.0), 1.9, 2.4, true],
+	[Vector3(2.1, 0.0, -20.8), 1.8, 3.7, true],
+	[Vector3(9.25, 0.0, -27.1), 2.25, 5.0, true],
+	[Vector3(1.2, 0.0, -34.0), 1.6, 1.9, true],
+	[Vector3(5.0, 0.0, -44.4), 2.6, 3.2, true],
 ]
 
 const DUST_EMITTERS: Array = [
 	[Vector3(0.0, 0.65, 8.0), Vector3(4.2, 0.45, 3.5)],
-	[Vector3(0.0, 0.8, -17.0), Vector3(5.0, 0.6, 12.0)],
-	[Vector3(0.0, 0.8, -29.0), Vector3(11.0, 0.6, 9.0)],
+	[Vector3(0.0, 0.8, -16.5), Vector3(10.0, 0.6, 16.0)],
+	[Vector3(4.0, 0.8, -27.0), Vector3(14.0, 0.6, 10.0)],
 ]
 
 const CORRUPTION_EMITTERS: Array = [
-	[Vector3(-3.0, 0.8, -48.0), Vector3(4.0, 1.0, 4.0)],
-	[Vector3(3.0, 0.8, -49.5), Vector3(4.0, 1.0, 4.0)],
-	[Vector3(0.0, 0.8, -50.5), Vector3(3.0, 1.0, 3.0)],
+	[Vector3(-5.0, 0.8, -44.0), Vector3(4.0, 1.0, 4.0)],
+	[Vector3(1.0, 0.8, -45.5), Vector3(4.0, 1.0, 4.0)],
+	[Vector3(-2.0, 0.8, -47.0), Vector3(3.0, 1.0, 3.0)],
 ]
 
 var _lantern_lights: Array[OmniLight3D] = []
@@ -184,8 +184,8 @@ func _build_deep_exit_crevice_light() -> void:
 func _build_height_fog() -> void:
 	var fog_volume := FogVolume.new()
 	fog_volume.name = &"BurialRoadHeightFog"
-	fog_volume.position = Vector3(0.0, 1.2, -20.0)
-	fog_volume.size = Vector3(18.0, 4.0, 72.0)
+	fog_volume.position = Vector3(0.0, 1.2, -18.0)
+	fog_volume.size = Vector3(28.0, 4.0, 68.0)
 	var fog_material := ShaderMaterial.new()
 	fog_material.shader = HEIGHT_FOG_SHADER
 	fog_material.set_shader_parameter(&"fog_color", Vector3(0.18, 0.23, 0.25))

@@ -13,10 +13,17 @@ const FOLLOW_CAMERA_RIG_SCRIPT = preload("res://scripts/world/follow_camera_rig.
 ## player to traverse each complete gameplay section.
 const CAMERA_BOUNDS: Dictionary[StringName, Rect2] = {
 	&"DeepExit": Rect2(-1.0, -4.2, 2.0, 13.2),
-	&"XumenGate": Rect2(-0.8, -11.0, 1.6, 7.0),
-	&"BurialRoad": Rect2(-0.3, -24.5, 0.6, 14.5),
-	&"SealCourtyard": Rect2(-1.7, -40.5, 3.4, 17.0),
-	&"BossArena": Rect2(-3.2, -50.5, 6.4, 11.0),
+	&"XumenGate": Rect2(-6.5, -10.5, 5.0, 7.0),
+	&"BurialRoad": Rect2(-4.2, -24.0, 8.4, 14.5),
+	&"SealCourtyard": Rect2(-1.5, -32.0, 11.0, 10.0),
+	&"BossArena": Rect2(-4.5, -50.0, 5.0, 13.0),
+}
+const ZONE_DIRECTIONS: Dictionary[StringName, Vector3] = {
+	&"DeepExit": Vector3(-0.5, 0.0, -0.866),
+	&"XumenGate": Vector3(-0.5, 0.0, -0.866),
+	&"BurialRoad": Vector3(0.5, 0.0, -0.866),
+	&"SealCourtyard": Vector3(-0.766, 0.0, -0.643),
+	&"BossArena": Vector3(0.0, 0.0, -1.0),
 }
 
 const ZONE_TITLES: Dictionary = {
@@ -109,6 +116,8 @@ func _update_zone(zone_name: StringName) -> void:
 	_current_zone = zone_name
 	if CAMERA_BOUNDS.has(zone_name):
 		camera_rig.set_movement_bounds(CAMERA_BOUNDS[zone_name])
+	if ZONE_DIRECTIONS.has(zone_name):
+		camera_rig.set_idle_forward_direction(ZONE_DIRECTIONS[zone_name])
 	if zone_name == &"BossArena":
 		camera_rig.enter_boss()
 	var display_name: String = ZONE_TITLES[zone_name]

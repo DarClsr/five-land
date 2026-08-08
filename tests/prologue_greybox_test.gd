@@ -23,15 +23,62 @@ func _run_test() -> void:
 	]:
 		_expect(route.has_section(section_name), "route contains %s" % section_name)
 
-	var section_positions: Array[float] = [
-		route.get_node("DeepExit/Floor").position.z,
-		route.get_node("XumenGate/Floor").position.z,
-		route.get_node("BurialRoad/Floor").position.z,
-		route.get_node("SealCourtyard/Floor").position.z,
-		route.get_node("BossArena/Floor").position.z,
+	var section_positions: Array[Vector3] = [
+		(route.get_node("DeepExit/Floor") as Node3D).position,
+		(route.get_node("XumenGate/Floor") as Node3D).position,
+		(route.get_node("BurialRoad/Floor") as Node3D).position,
+		(route.get_node("SealCourtyard/Floor") as Node3D).position,
+		(route.get_node("BossArena/Floor") as Node3D).position,
 	]
 	for index: int in range(1, section_positions.size()):
-		_expect(section_positions[index] < section_positions[index - 1], "sections progress along world -Z")
+		_expect(section_positions[index].z < section_positions[index - 1].z, "sections progress along world -Z")
+	_expect(
+		section_positions[1].x < -3.5
+			and section_positions[3].x > 3.5
+			and section_positions[4].x < -1.5,
+		"major rooms alternate laterally instead of forming one vertical corridor"
+	)
+	var bridge_floor := route.get_node("OuterBridge/Floor") as StaticBody3D
+	var burial_floor := route.get_node("BurialRoad/Floor") as StaticBody3D
+	var passage_floor := route.get_node("GravePassage/Floor") as StaticBody3D
+	_expect(absf(bridge_floor.rotation_degrees.y - 30.0) < 0.1, "outer bridge advances on a thirty-degree diagonal")
+	_expect(absf(burial_floor.rotation_degrees.y + 30.0) < 0.1, "burial road reverses the diagonal")
+	_expect(absf(passage_floor.rotation_degrees.y - 50.0) < 0.1, "boss passage turns back across the composition")
+	_expect(route.has_node("BurialRoad/RoadPathFrame/RoadPath"), "diagonal burial road keeps its flagstone guide")
+	var route_samples: Array[Vector3] = [
+		Vector3(0.0, 0.0, 8.0),
+		Vector3(0.0, 0.0, 4.0),
+		Vector3(-2.0, 0.0, 0.0),
+		Vector3(-4.0, 0.0, -4.0),
+		Vector3(-4.0, 0.0, -8.0),
+		Vector3(-3.0, 0.0, -11.5),
+		Vector3(0.0, 0.0, -16.5),
+		Vector3(3.0, 0.0, -21.5),
+		Vector3(4.0, 0.0, -27.0),
+		Vector3(4.0, 0.0, -31.0),
+		Vector3(1.0, 0.0, -34.0),
+		Vector3(-2.0, 0.0, -37.0),
+		Vector3(-2.0, 0.0, -44.0),
+	]
+	var space_state: PhysicsDirectSpaceState3D = level.get_world_3d().direct_space_state
+	for sample: Vector3 in route_samples:
+		var ray := PhysicsRayQueryParameters3D.create(
+			sample + Vector3.UP * 2.0,
+			sample + Vector3.DOWN * 2.0
+		)
+		var has_floor: bool = false
+		for _hit_index: int in range(8):
+			var hit: Dictionary = space_state.intersect_ray(ray)
+			if hit.is_empty():
+				break
+			var collider := hit.get("collider") as CollisionObject3D
+			if collider != null and collider.name == &"Floor":
+				has_floor = true
+				break
+			if collider == null:
+				break
+			ray.exclude = ray.exclude + [collider.get_rid()]
+		_expect(has_floor, "walkable floor covers route sample %s" % sample)
 
 	var player: CharacterBody3D = level.player
 	var player_spawn_transform: Transform3D = player.global_transform
@@ -168,7 +215,7 @@ func _run_test() -> void:
 	)
 	_expect(route.has_node("NavigationBoundaries/LeftWall0"), "route has a solid left gameplay boundary")
 	_expect(route.has_node("NavigationBoundaries/RightWall1"), "bridge has a solid right gameplay boundary")
-	_expect(route.has_node("NavigationBoundaries/LeftShoulder0"), "wide rooms close around narrow corridor seams")
+	_expect(route.has_node("NavigationBoundaries/DeepExitBack0"), "wide rooms close around diagonal doorways")
 	_expect(route.has_node("NavigationBoundaries/ForegroundCap"), "foreground edge blocks the player capsule")
 	var boundary_shape := route.get_node(
 		"NavigationBoundaries/ForegroundCap/CollisionShape3D"
@@ -194,7 +241,9 @@ func _run_test() -> void:
 		"camera settles into its forward-biased exploration composition"
 	)
 	_expect(
-		level.camera_rig.get_look_ahead_offset().z < -0.35,
+		level.camera_rig.get_look_ahead_offset().dot(
+			PrologueGreyboxController.ZONE_DIRECTIONS[&"DeepExit"]
+		) > 0.35,
 		"idle composition reserves screen space along the prologue route"
 	)
 	player.global_transform = player_spawn_transform
@@ -207,17 +256,19 @@ func _run_test() -> void:
 	_expect(camera_attributes.dof_blur_far_enabled, "diorama DOF softens the distant background")
 
 	var boss_trigger: Area3D = level.get_node("Triggers/BossArena") as Area3D
+	var burial_trigger: Area3D = level.get_node("Triggers/BurialRoad") as Area3D
 	_expect(boss_trigger.get_collision_mask_value(6), "zone triggers scan only the player body layer")
+	_expect(absf(rad_to_deg(burial_trigger.rotation.y) + 30.0) < 0.1, "burial trigger follows the diagonal road")
 	_expect(level.get_current_zone() == &"DeepExit", "prologue starts at the deep exit")
 
-	player.global_position = Vector3(0.0, 0.0, -7.0)
+	player.global_position = Vector3(-4.0, 0.0, -7.0)
 	player.reset_physics_interpolation()
 	for _frame: int in range(3):
 		await physics_frame
 	_expect(level.get_current_zone() == &"XumenGate", "entering the gate updates the current zone")
 	_expect(level.objective_label.text.contains("送葬道"), "gate zone exposes the next route objective")
 
-	player.global_position = Vector3(0.0, 0.0, -47.0)
+	player.global_position = Vector3(-2.0, 0.0, -44.0)
 	player.reset_physics_interpolation()
 	for _frame: int in range(3):
 		await physics_frame

@@ -44,28 +44,29 @@ const PATH_TILE_METERS: float = 1.05
 const PATH_TONE_STEPS: int = 5
 const PATH_GLOSS_STEPS: int = 3
 
-## Canyon segments that ring the route: [z_center, z_length, path_half_width].
-## Walls hug the path edge so the corridor sections read as a narrow gorge.
+## Route segments: [x_center, z_center, length, path_half_width, yaw_degrees].
+## Positive yaw bends the authored -Z route toward world -X.
 const CANYON_SEGMENTS: Array = [
-	[8.0, 9.0, 4.88],
-	[-7.0, 7.0, 3.4],
-	[-17.0, 15.0, 2.5],
-	[-29.0, 11.0, 6.0],
-	[-37.0, 7.0, 1.75],
-	[-47.0, 15.0, 8.0],
+	[0.0, 8.0, 9.0, 4.88, 0.0],
+	[-2.0, 0.0, 9.2, 1.7, 30.0],
+	[-4.0, -7.0, 7.0, 6.0, 0.0],
+	[0.0, -16.5, 16.2, 2.5, -30.0],
+	[4.0, -27.0, 10.0, 7.0, 0.0],
+	[1.0, -34.0, 8.2, 1.85, 50.0],
+	[-2.0, -44.0, 15.0, 9.0, 0.0],
 ]
 
 ## Continuous collision corridor. Visual canyon segments intentionally leave
 ## overlaps and gaps for composition, so gameplay boundaries are authored
 ## separately and include the bridge between DeepExit and XumenGate.
 const NAVIGATION_SEGMENTS: Array = [
-	[8.0, 9.0, 3.55],
-	[0.0, 8.0, 1.6],
-	[-7.0, 7.0, 3.35],
-	[-17.0, 15.0, 2.5],
-	[-29.0, 11.0, 6.0],
-	[-37.0, 7.0, 1.75],
-	[-47.0, 15.0, 8.0],
+	[0.0, 8.0, 9.0, 3.55, 0.0],
+	[-2.0, 0.0, 9.2, 1.6, 30.0],
+	[-4.0, -7.0, 7.0, 5.8, 0.0],
+	[0.0, -16.5, 16.2, 2.5, -30.0],
+	[4.0, -27.0, 10.0, 6.8, 0.0],
+	[1.0, -34.0, 8.2, 1.75, 50.0],
+	[-2.0, -44.0, 15.0, 8.8, 0.0],
 ]
 
 const ROUGH_GROUND_PIXEL_TEXTURE: Texture2D = preload("res://assets/textures/terrain/cave_flagstone_64.png")
@@ -153,35 +154,42 @@ func _build_deep_exit() -> void:
 
 
 func _build_bridge() -> void:
-	var section: Node3D = _create_section(&"OuterBridge", Vector3(0.0, -0.2, 0.0), Vector3(3.2, 0.4, 8.0), BRIDGE_COLOR, BRIDGE_PIXEL_TEXTURE)
+	var center := Vector3(-2.0, -0.2, 0.0)
+	var section: Node3D = _create_section(
+		&"OuterBridge", center, Vector3(3.4, 0.4, 9.2),
+		BRIDGE_COLOR, BRIDGE_PIXEL_TEXTURE, 30.0
+	)
 	_add_bridge_underside(section)
 	_add_broken_bridge_rails(section)
-	_add_corruption_patch(section, &"BridgeWear", Vector3(0.62, 0.012, 0.35), Vector3(0.9, 0.025, 1.45))
-	_add_crack(section, &"BridgeCrack", Vector3(-0.4, 0.01, -2.2), Vector3(2.2, 0.06, 0.16))
-	_add_stone_path(section, &"BridgePath", 4.0, -4.0, 2.72)
+	_add_corruption_patch(section, &"BridgeWear", Vector3(-1.45, 0.012, 0.5), Vector3(0.9, 0.025, 1.45))
+	_add_crack(section, &"BridgeCrack", Vector3(-2.7, 0.01, -2.0), Vector3(2.2, 0.06, 0.16))
+	_add_oriented_stone_path(section, &"BridgePath", center, 9.0, 2.72, 30.0)
 
 
 func _add_bridge_underside(parent: Node3D) -> void:
 	var underside := _add_silhouette_box(
-		parent, &"BridgeUnderside", Vector3(0.0, -0.95, 0.0),
-		Vector3(3.5, 1.55, 8.3), ABYSS_GROUND_COLOR
+		parent, &"BridgeUnderside", Vector3(-2.0, -0.95, 0.0),
+		Vector3(3.7, 1.55, 9.5), ABYSS_GROUND_COLOR
 	)
+	underside.rotation_degrees.y = 30.0
 	underside.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
 func _add_broken_bridge_rails(parent: Node3D) -> void:
+	var center := Vector3(-2.0, 0.0, 0.0)
+	var basis := Basis(Vector3.UP, deg_to_rad(30.0))
 	for side: float in [-1.0, 1.0]:
 		var side_name: String = "Right" if side > 0.0 else "Left"
 		for index: int in range(5):
 			if (index == 1 and side < 0.0) or (index == 3 and side > 0.0):
 				continue
-			var z: float = 3.25 - index * 1.62
+			var local_position := Vector3(side * 1.55, 0.18, 3.6 - index * 1.8)
 			var stone := _make_decor_body(
 				parent, StringName("Bridge%sBoundary%d" % [side_name, index]),
-				Vector3(side * 1.47, 0.18, z), Vector3(0.32, 0.36, 0.62),
+				center + basis * local_position, Vector3(0.32, 0.36, 0.62),
 				Color(0.25, 0.28, 0.27, 1.0), ROUGH_WALL_PIXEL_TEXTURE
 			)
-			stone.rotation_degrees.y = _rng.randf_range(-6.0, 6.0)
+			stone.rotation_degrees.y = 30.0 + _rng.randf_range(-6.0, 6.0)
 
 
 func _build_fog_abyss_cemetery() -> void:
@@ -343,85 +351,93 @@ func _get_corruption_glow_material() -> StandardMaterial3D:
 
 
 func _build_xumen_gate() -> void:
-	var section: Node3D = _create_section(&"XumenGate", Vector3(0.0, -0.2, -7.0), Vector3(10.0, 0.4, 6.0), GROUND_COLOR, GROUND_SOIL_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, -7.0), Vector2(6.7, 6.0))
-	_add_block(section, &"GatePillarLeft", Vector3(-2.45, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
-	_add_block(section, &"GatePillarRight", Vector3(2.45, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
-	_add_block(section, &"GateLintel", Vector3(0.0, 4.0, -8.0), Vector3(6.1, 0.7, 1.0), WALL_COLOR)
-	_add_corruption_patch(section, &"GateCorruption", Vector3(-1.6, 0.01, -6.4), Vector3(2.4, 0.05, 2.0))
-	_add_tombstone(section, &"GateTombLeft", Vector3(-2.6, 0.0, -6.2), 0.8, 1.5)
-	_add_tombstone(section, &"GateTombRight", Vector3(2.5, 0.0, -7.6), 0.9, 1.9)
-	_add_rock_pile(section, &"GateRocks", Vector3(-2.6, 0.0, -9.0), 0.4, 4)
-	_add_dead_tree(section, &"GateTree", Vector3(2.6, 0.0, -5.2), 2.2)
-	_add_stone_path(section, &"GatePath", -4.0, -10.0, 2.6)
+	var section: Node3D = _create_section(&"XumenGate", Vector3(-4.0, -0.2, -7.0), Vector3(12.0, 0.4, 6.0), GROUND_COLOR, GROUND_SOIL_TEXTURE)
+	_add_side_rails(section, Vector3(-4.0, 0.0, -7.0), Vector2(12.0, 6.0))
+	_add_block(section, &"GatePillarLeft", Vector3(-6.45, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
+	_add_block(section, &"GatePillarRight", Vector3(-1.55, 2.2, -8.0), Vector3(1.2, 4.4, 1.2), WALL_COLOR)
+	_add_block(section, &"GateLintel", Vector3(-4.0, 4.0, -8.0), Vector3(6.1, 0.7, 1.0), WALL_COLOR)
+	_add_corruption_patch(section, &"GateCorruption", Vector3(-5.6, 0.01, -6.4), Vector3(2.4, 0.05, 2.0))
+	_add_tombstone(section, &"GateTombLeft", Vector3(-8.6, 0.0, -6.2), 0.8, 1.5)
+	_add_tombstone(section, &"GateTombRight", Vector3(0.5, 0.0, -7.6), 0.9, 1.9)
+	_add_rock_pile(section, &"GateRocks", Vector3(-8.8, 0.0, -8.8), 0.4, 4)
+	_add_dead_tree(section, &"GateTree", Vector3(1.1, 0.0, -5.2), 2.2)
+	_add_stone_path_at_x(section, &"GatePath", -4.0, -4.0, -10.0, 2.6)
 
 
 func _build_burial_road() -> void:
-	var section: Node3D = _create_section(&"BurialRoad", Vector3(0.0, -0.2, -17.0), Vector3(5.0, 0.4, 14.0), BRIDGE_COLOR, GRAVE_STONE_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, -17.0), Vector2(5.0, 14.0))
-	_add_block(section, &"OverturnedCart", Vector3(-1.25, 0.45, -15.5), Vector3(1.8, 0.9, 1.0), Color(0.42, 0.3, 0.22), TIMBER_PIXEL_TEXTURE)
-	_add_tombstone(section, &"BurialStele", Vector3(1.5, 0.0, -20.0), 1.0, 2.5, GRAVE_STONE_TEXTURE)
-	_add_vein_patch(section, &"VeinRoad1", Vector3(0.0, 0.02, -13.5), Vector3(0.7, 0.08, 1.6))
-	_add_vein_patch(section, &"VeinRoad2", Vector3(-1.1, 0.02, -18.5), Vector3(1.9, 0.08, 0.5))
-	_add_crack(section, &"RoadCrack1", Vector3(0.6, 0.01, -21.2), Vector3(0.16, 0.06, 3.0))
-	_add_tombstone(section, &"RoadTomb1", Vector3(-1.7, 0.0, -16.4), 0.8, 1.4)
-	_add_tombstone(section, &"RoadTomb2", Vector3(1.8, 0.0, -18.2), 0.7, 1.2)
-	_add_tombstone(section, &"RoadTomb3", Vector3(-1.5, 0.0, -21.0), 0.85, 1.6)
-	_add_tombstone(section, &"RoadTomb4", Vector3(1.7, 0.0, -23.4), 0.6, 1.0)
-	_add_corruption_patch(section, &"RoadCorruption1", Vector3(-0.8, 0.01, -19.6), Vector3(1.6, 0.05, 1.4))
-	_add_corruption_patch(section, &"RoadCorruption2", Vector3(1.0, 0.01, -22.8), Vector3(1.3, 0.05, 1.1))
-	_add_rock_pile(section, &"RoadRocks1", Vector3(-1.95, 0.0, -15.0), 0.4, 4)
-	_add_rock_pile(section, &"RoadRocks2", Vector3(1.95, 0.0, -22.0), 0.35, 3)
-	_add_dead_tree(section, &"RoadTree1", Vector3(-1.9, 0.0, -19.0), 2.8)
-	_add_dead_tree(section, &"RoadTree2", Vector3(1.95, 0.0, -24.5), 2.0)
-	_add_stone_path(section, &"RoadPath", -10.5, -24.0, 2.2)
+	var center := Vector3(0.0, -0.2, -16.5)
+	var section: Node3D = _create_section(
+		&"BurialRoad", center, Vector3(5.0, 0.4, 16.2),
+		BRIDGE_COLOR, GRAVE_STONE_TEXTURE, -30.0
+	)
+	_add_side_rails(section, Vector3(0.0, 0.0, -16.5), Vector2(5.0, 16.2), null, 0.85, -30.0)
+	_add_block(section, &"OverturnedCart", Vector3(-2.0, 0.45, -13.5), Vector3(1.8, 0.9, 1.0), Color(0.42, 0.3, 0.22), TIMBER_PIXEL_TEXTURE)
+	_add_tombstone(section, &"BurialStele", Vector3(3.0, 0.0, -20.5), 1.0, 2.5, GRAVE_STONE_TEXTURE)
+	_add_vein_patch(section, &"VeinRoad1", Vector3(-2.1, 0.02, -12.7), Vector3(0.7, 0.08, 1.6))
+	_add_vein_patch(section, &"VeinRoad2", Vector3(0.8, 0.02, -18.5), Vector3(1.9, 0.08, 0.5))
+	_add_crack(section, &"RoadCrack1", Vector3(3.0, 0.01, -21.5), Vector3(0.16, 0.06, 3.0))
+	_add_tombstone(section, &"RoadTomb1", Vector3(-2.6, 0.0, -14.8), 0.8, 1.4)
+	_add_tombstone(section, &"RoadTomb2", Vector3(0.5, 0.0, -16.7), 0.7, 1.2)
+	_add_tombstone(section, &"RoadTomb3", Vector3(0.8, 0.0, -20.0), 0.85, 1.6)
+	_add_tombstone(section, &"RoadTomb4", Vector3(4.2, 0.0, -22.5), 0.6, 1.0)
+	_add_corruption_patch(section, &"RoadCorruption1", Vector3(0.5, 0.01, -18.5), Vector3(1.6, 0.05, 1.4))
+	_add_corruption_patch(section, &"RoadCorruption2", Vector3(3.0, 0.01, -21.8), Vector3(1.3, 0.05, 1.1))
+	_add_rock_pile(section, &"RoadRocks1", Vector3(-2.4, 0.0, -13.2), 0.4, 4)
+	_add_rock_pile(section, &"RoadRocks2", Vector3(4.0, 0.0, -22.0), 0.35, 3)
+	_add_dead_tree(section, &"RoadTree1", Vector3(0.2, 0.0, -19.0), 2.8)
+	_add_dead_tree(section, &"RoadTree2", Vector3(4.4, 0.0, -23.0), 2.0)
+	_add_oriented_stone_path(section, &"RoadPath", center, 15.8, 2.2, -30.0)
 
 
 func _build_seal_courtyard() -> void:
-	var section: Node3D = _create_section(&"SealCourtyard", Vector3(0.0, -0.2, -29.0), Vector3(12.0, 0.4, 10.0), GROUND_COLOR, GRAVE_STONE_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, -29.0), Vector2(12.0, 10.0))
+	var section: Node3D = _create_section(&"SealCourtyard", Vector3(4.0, -0.2, -27.0), Vector3(14.0, 0.4, 10.0), GROUND_COLOR, GRAVE_STONE_TEXTURE)
+	_add_side_rails(section, Vector3(4.0, 0.0, -27.0), Vector2(14.0, 10.0))
 	for index: int in range(3):
-		var x_position: float = -3.0 + index * 3.0
-		_add_block(section, StringName("SealPost%d" % (index + 1)), Vector3(x_position, 1.15, -29.5), Vector3(0.8, 2.3, 0.8), SEAL_COLOR)
-	_add_block(section, &"GraveGateLeft", Vector3(-2.3, 1.8, -33.1), Vector3(1.2, 3.6, 1.1), WALL_COLOR)
-	_add_block(section, &"GraveGateRight", Vector3(2.3, 1.8, -33.1), Vector3(1.2, 3.6, 1.1), WALL_COLOR)
-	_add_crack(section, &"CourtyardCrack", Vector3(0.0, 0.01, -27.5), Vector3(3.2, 0.06, 0.18))
-	_add_vein_patch(section, &"VeinCourtyard1", Vector3(-4.2, 0.02, -28.0), Vector3(0.5, 0.08, 2.2))
-	_add_vein_patch(section, &"VeinCourtyard2", Vector3(4.0, 0.02, -30.5), Vector3(2.4, 0.08, 0.5))
-	_add_tombstone(section, &"CourtyardTomb1", Vector3(-4.8, 0.0, -31.2), 0.9, 1.8)
-	_add_tombstone(section, &"CourtyardTomb2", Vector3(4.7, 0.0, -27.6), 0.8, 1.3)
-	_add_tombstone(section, &"CourtyardTomb3", Vector3(5.0, 0.0, -32.0), 0.7, 1.5)
-	_add_corruption_patch(section, &"CourtyardCorruption", Vector3(-2.6, 0.01, -31.0), Vector3(2.2, 0.05, 1.8))
-	_add_rock_pile(section, &"CourtyardRocks1", Vector3(-5.4, 0.0, -26.8), 0.45, 5)
-	_add_rock_pile(section, &"CourtyardRocks2", Vector3(5.4, 0.0, -33.0), 0.4, 4)
-	_add_dead_tree(section, &"CourtyardTree", Vector3(-5.6, 0.0, -31.0), 3.0)
+		var x_position: float = 1.0 + index * 3.0
+		_add_block(section, StringName("SealPost%d" % (index + 1)), Vector3(x_position, 1.15, -27.5), Vector3(0.8, 2.3, 0.8), SEAL_COLOR)
+	_add_block(section, &"GraveGateLeft", Vector3(1.7, 1.8, -31.1), Vector3(1.2, 3.6, 1.1), WALL_COLOR)
+	_add_block(section, &"GraveGateRight", Vector3(6.3, 1.8, -31.1), Vector3(1.2, 3.6, 1.1), WALL_COLOR)
+	_add_crack(section, &"CourtyardCrack", Vector3(4.0, 0.01, -25.5), Vector3(3.2, 0.06, 0.18))
+	_add_vein_patch(section, &"VeinCourtyard1", Vector3(-1.2, 0.02, -26.0), Vector3(0.5, 0.08, 2.2))
+	_add_vein_patch(section, &"VeinCourtyard2", Vector3(9.0, 0.02, -28.5), Vector3(2.4, 0.08, 0.5))
+	_add_tombstone(section, &"CourtyardTomb1", Vector3(-1.8, 0.0, -29.2), 0.9, 1.8)
+	_add_tombstone(section, &"CourtyardTomb2", Vector3(9.7, 0.0, -25.6), 0.8, 1.3)
+	_add_tombstone(section, &"CourtyardTomb3", Vector3(10.0, 0.0, -30.0), 0.7, 1.5)
+	_add_corruption_patch(section, &"CourtyardCorruption", Vector3(1.4, 0.01, -29.0), Vector3(2.2, 0.05, 1.8))
+	_add_rock_pile(section, &"CourtyardRocks1", Vector3(-2.4, 0.0, -24.8), 0.45, 5)
+	_add_rock_pile(section, &"CourtyardRocks2", Vector3(10.4, 0.0, -31.0), 0.4, 4)
+	_add_dead_tree(section, &"CourtyardTree", Vector3(-2.6, 0.0, -29.0), 3.0)
 
 
 func _build_boss_approach() -> void:
-	var section: Node3D = _create_section(&"GravePassage", Vector3(0.0, -0.2, -37.0), Vector3(3.5, 0.4, 6.0), BRIDGE_COLOR, GRAVE_STONE_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, -37.0), Vector2(3.5, 6.0))
-	_add_vein_patch(section, &"VeinPassage", Vector3(0.2, 0.02, -38.4), Vector3(0.6, 0.08, 2.6))
-	_add_tombstone(section, &"PassageTomb", Vector3(1.2, 0.0, -36.2), 0.7, 1.3)
-	_add_ruin_pillar(section, &"PassagePillar", Vector3(-1.25, 0.0, -39.6), 0.5, 2.8)
-	_add_rock_pile(section, &"PassageRocks", Vector3(-1.3, 0.0, -36.8), 0.35, 3)
-	_add_stone_path(section, &"PassagePath", -34.0, -40.0, 1.6)
+	var center := Vector3(1.0, -0.2, -34.0)
+	var section: Node3D = _create_section(
+		&"GravePassage", center, Vector3(3.7, 0.4, 8.2),
+		BRIDGE_COLOR, GRAVE_STONE_TEXTURE, 50.0
+	)
+	_add_side_rails(section, Vector3(1.0, 0.0, -34.0), Vector2(3.7, 8.2), null, 0.85, 50.0)
+	_add_vein_patch(section, &"VeinPassage", Vector3(-0.2, 0.02, -35.0), Vector3(0.6, 0.08, 2.6))
+	_add_tombstone(section, &"PassageTomb", Vector3(2.4, 0.0, -33.4), 0.7, 1.3)
+	_add_ruin_pillar(section, &"PassagePillar", Vector3(-2.0, 0.0, -36.5), 0.5, 2.8)
+	_add_rock_pile(section, &"PassageRocks", Vector3(2.0, 0.0, -32.4), 0.35, 3)
+	_add_oriented_stone_path(section, &"PassagePath", center, 8.0, 1.6, 50.0)
 
 
 func _build_boss_arena() -> void:
-	var section: Node3D = _create_section(&"BossArena", Vector3(0.0, -0.2, -47.0), Vector3(16.0, 0.4, 14.0), CORRUPTION_COLOR, CORRUPTION_GROUND_TEXTURE)
-	_add_side_rails(section, Vector3(0.0, 0.0, -47.0), Vector2(16.0, 14.0))
-	_add_block(section, &"BurdenStoneLeft", Vector3(-5.2, 1.8, -47.5), Vector3(1.2, 3.6, 1.2), WALL_COLOR)
-	_add_block(section, &"BurdenStoneRight", Vector3(5.0, 2.4, -45.5), Vector3(1.4, 4.8, 1.4), WALL_COLOR)
-	_add_block(section, &"BurdenStoneRear", Vector3(0.0, 2.8, -52.0), Vector3(1.8, 5.6, 1.8), WALL_COLOR)
-	_add_crack(section, &"ArenaCrack1", Vector3(-2.8, 0.01, -48.6), Vector3(3.4, 0.06, 0.18))
-	_add_crack(section, &"ArenaCrack2", Vector3(2.2, 0.01, -50.2), Vector3(0.2, 0.06, 3.6))
-	_add_vein_patch(section, &"VeinArena", Vector3(-1.0, 0.02, -46.2), Vector3(0.9, 0.08, 1.8))
-	_add_tombstone(section, &"ArenaTomb", Vector3(3.6, 0.0, -48.8), 1.0, 2.0)
-	_add_ruin_pillar(section, &"ArenaPillarLeft", Vector3(-6.4, 0.0, -45.6), 0.6, 3.4)
-	_add_ruin_pillar(section, &"ArenaPillarRight", Vector3(6.2, 0.0, -50.4), 0.55, 2.9)
-	_add_rock_pile(section, &"ArenaRocks1", Vector3(-6.8, 0.0, -50.0), 0.5, 5)
-	_add_rock_pile(section, &"ArenaRocks2", Vector3(6.8, 0.0, -48.0), 0.45, 4)
-	_add_dead_tree(section, &"ArenaTree", Vector3(-5.0, 0.0, -53.0), 2.6)
+	var section: Node3D = _create_section(&"BossArena", Vector3(-2.0, -0.2, -44.0), Vector3(18.0, 0.4, 14.0), CORRUPTION_COLOR, CORRUPTION_GROUND_TEXTURE)
+	_add_side_rails(section, Vector3(-2.0, 0.0, -44.0), Vector2(18.0, 14.0))
+	_add_block(section, &"BurdenStoneLeft", Vector3(-8.2, 1.8, -44.5), Vector3(1.2, 3.6, 1.2), WALL_COLOR)
+	_add_block(section, &"BurdenStoneRight", Vector3(5.0, 2.4, -42.5), Vector3(1.4, 4.8, 1.4), WALL_COLOR)
+	_add_block(section, &"BurdenStoneRear", Vector3(-2.0, 2.8, -49.0), Vector3(1.8, 5.6, 1.8), WALL_COLOR)
+	_add_crack(section, &"ArenaCrack1", Vector3(-4.8, 0.01, -45.6), Vector3(3.4, 0.06, 0.18))
+	_add_crack(section, &"ArenaCrack2", Vector3(0.2, 0.01, -47.2), Vector3(0.2, 0.06, 3.6))
+	_add_vein_patch(section, &"VeinArena", Vector3(-3.0, 0.02, -43.2), Vector3(0.9, 0.08, 1.8))
+	_add_tombstone(section, &"ArenaTomb", Vector3(2.6, 0.0, -45.8), 1.0, 2.0)
+	_add_ruin_pillar(section, &"ArenaPillarLeft", Vector3(-9.4, 0.0, -42.6), 0.6, 3.4)
+	_add_ruin_pillar(section, &"ArenaPillarRight", Vector3(5.2, 0.0, -47.4), 0.55, 2.9)
+	_add_rock_pile(section, &"ArenaRocks1", Vector3(-9.8, 0.0, -47.0), 0.5, 5)
+	_add_rock_pile(section, &"ArenaRocks2", Vector3(5.8, 0.0, -45.0), 0.45, 4)
+	_add_dead_tree(section, &"ArenaTree", Vector3(-7.0, 0.0, -50.0), 2.6)
 
 
 ## Rings the playable route with tall irregular rock walls that block the
@@ -434,14 +450,20 @@ func _build_backdrop_walls() -> void:
 	add_child(backdrop)
 	for index: int in CANYON_SEGMENTS.size():
 		var segment: Array = CANYON_SEGMENTS[index]
-		_add_canyon_side(backdrop, index, segment[0], segment[1], segment[2], 1.0)
-		_add_canyon_side(backdrop, index, segment[0], segment[1], segment[2], -1.0)
+		_add_canyon_side(
+			backdrop, index, float(segment[0]), float(segment[1]),
+			float(segment[2]), float(segment[3]), float(segment[4]), 1.0
+		)
+		_add_canyon_side(
+			backdrop, index, float(segment[0]), float(segment[1]),
+			float(segment[2]), float(segment[3]), float(segment[4]), -1.0
+		)
 	## Rear cap behind the boss arena.
 	for index: int in range(5):
 		var x: float = -8.0 + index * 4.0
 		_add_organic_cliff(
 			backdrop, StringName("RearWall%d" % index),
-			Vector3(x, 0.0, -57.0), Vector3(3.6, 8.0 + _rng.randf_range(-1.5, 1.5), 2.2),
+			Vector3(x - 2.0, 0.0, -52.0), Vector3(3.6, 8.0 + _rng.randf_range(-1.5, 1.5), 2.2),
 			_rng.randf_range(-3.0, 3.0)
 		)
 	_build_cliff_branches(backdrop)
@@ -469,29 +491,42 @@ func _build_cliff_branches(parent: Node3D) -> void:
 func _add_canyon_side(
 	backdrop: Node3D,
 	segment_index: int,
+	x_center: float,
 	z_center: float,
 	z_length: float,
 	path_half_width: float,
+	yaw: float,
 	side: float
 ) -> void:
 	const BLOCK_DEPTH: float = 2.8
 	const BLOCK_WIDTH: float = 2.4
 	var step: float = 2.4
 	var count: int = int(ceil(z_length / step)) + 1
-	var z_start: float = z_center + z_length * 0.5
-	## Offset so the inner face lands flush with the path edge.
+	var center := Vector3(x_center, 0.0, z_center)
+	var basis := Basis(Vector3.UP, deg_to_rad(yaw))
+	var z_start: float = z_length * 0.5
 	var x: float = side * (path_half_width + BLOCK_WIDTH * 0.5 - 0.05)
 	var side_tag: String = "Right" if side > 0.0 else "Left"
 	for index: int in range(count):
 		var z: float = z_start - index * step
-		var height: float = _rng.randf_range(5.0, 8.5)
-		_add_organic_cliff(
+		var local_position := Vector3(x + side * _rng.randf_range(0.0, 0.5), 0.0, z)
+		var world_position: Vector3 = center + basis * local_position
+		## Camera-facing blocks frame the floor instead of covering it. Rear walls
+		## keep the full canyon height while foreground walls drop below the actor.
+		var height: float = (
+			_rng.randf_range(2.4, 4.0)
+			if world_position.z > center.z + 0.35
+			else _rng.randf_range(5.0, 8.5)
+		)
+		var cliff := _add_organic_cliff(
 			backdrop, StringName("Canyon%s%d_%d" % [side_tag, segment_index, index]),
-			Vector3(x + side * _rng.randf_range(0.0, 0.5), 0.0, z),
+			world_position,
 			Vector3(BLOCK_WIDTH, height, BLOCK_DEPTH),
-			_rng.randf_range(-6.0, 6.0),
+			yaw + _rng.randf_range(-6.0, 6.0),
 			0.62
 		)
+		cliff.add_to_group(&"camera_foreground")
+		cliff.transparency = 0.18
 
 
 func _add_organic_cliff(
@@ -522,7 +557,8 @@ func _create_section(
 	floor_position: Vector3,
 	floor_size: Vector3,
 	color: Color = GROUND_COLOR,
-	_floor_texture: Texture2D = null
+	_floor_texture: Texture2D = null,
+	yaw: float = 0.0
 ) -> Node3D:
 	var section: Node3D = Node3D.new()
 	section.name = section_name
@@ -531,14 +567,30 @@ func _create_section(
 	# only deliberate variant; legacy soil/limestone arguments are ignored.
 	var floor_texture: Texture2D = BRIDGE_PIXEL_TEXTURE if section_name == &"OuterBridge" else ROUGH_GROUND_PIXEL_TEXTURE
 	_add_block(section, &"Floor", floor_position, floor_size, color, floor_texture)
+	var floor := section.get_node("Floor") as StaticBody3D
+	floor.rotation_degrees.y = yaw
 	return section
 
 
-func _add_side_rails(parent: Node3D, center: Vector3, floor_size: Vector2, texture: Texture2D = null, height: float = 0.85) -> void:
+func _add_side_rails(
+	parent: Node3D,
+	center: Vector3,
+	floor_size: Vector2,
+	texture: Texture2D = null,
+	height: float = 0.85,
+	yaw: float = 0.0
+) -> void:
 	var rail_size: Vector3 = Vector3(0.35, height, floor_size.y)
 	var edge_x: float = floor_size.x * 0.5 - rail_size.x * 0.5
-	_add_block(parent, &"RailLeft", center + Vector3(-edge_x, height * 0.5, 0.0), rail_size, WALL_COLOR, texture)
-	_add_block(parent, &"RailRight", center + Vector3(edge_x, height * 0.5, 0.0), rail_size, WALL_COLOR, texture)
+	var basis := Basis(Vector3.UP, deg_to_rad(yaw))
+	for side: float in [-1.0, 1.0]:
+		var rail_name: StringName = &"RailRight" if side > 0.0 else &"RailLeft"
+		var rail := _make_decor_body(
+			parent, rail_name,
+			center + basis * Vector3(side * edge_x, height * 0.5, 0.0),
+			rail_size, WALL_COLOR, texture
+		)
+		rail.rotation_degrees.y = yaw
 
 
 func _add_deep_exit_rails(parent: Node3D) -> void:
@@ -712,55 +764,71 @@ func _build_navigation_boundaries() -> void:
 	add_child(boundaries)
 	for index: int in NAVIGATION_SEGMENTS.size():
 		var segment: Array = NAVIGATION_SEGMENTS[index]
-		var z_center: float = float(segment[0])
-		var z_length: float = float(segment[1]) + 0.45
-		var half_width: float = float(segment[2])
-		_add_invisible_wall(
-			boundaries, StringName("LeftWall%d" % index),
-			Vector3(-half_width, 1.5, z_center), Vector3(0.4, 3.0, z_length)
-		)
-		_add_invisible_wall(
-			boundaries, StringName("RightWall%d" % index),
-			Vector3(half_width, 1.5, z_center), Vector3(0.4, 3.0, z_length)
-		)
-	## Close the shoulder created wherever a wide chamber narrows into a
-	## corridor. Without these cross pieces the player can walk around the end
-	## of the narrow side wall and continue through the visual void.
-	for index: int in range(NAVIGATION_SEGMENTS.size() - 1):
-		var current: Array = NAVIGATION_SEGMENTS[index]
-		var following: Array = NAVIGATION_SEGMENTS[index + 1]
-		var current_back: float = float(current[0]) - float(current[1]) * 0.5
-		var following_front: float = float(following[0]) + float(following[1]) * 0.5
-		var seam_z: float = (current_back + following_front) * 0.5
-		var inner_width: float = minf(float(current[2]), float(following[2]))
-		var outer_width: float = maxf(float(current[2]), float(following[2]))
-		var shoulder_span: float = outer_width - inner_width
-		if shoulder_span <= 0.05:
-			continue
+		var center := Vector3(float(segment[0]), 1.5, float(segment[1]))
+		var z_length: float = float(segment[2]) + 0.45
+		var half_width: float = float(segment[3])
+		var yaw: float = float(segment[4])
+		var basis := Basis(Vector3.UP, deg_to_rad(yaw))
 		for side: float in [-1.0, 1.0]:
 			var side_name: String = "Right" if side > 0.0 else "Left"
 			_add_invisible_wall(
-				boundaries,
-				StringName("%sShoulder%d" % [side_name, index]),
-				Vector3(side * (inner_width + shoulder_span * 0.5), 1.5, seam_z),
-				Vector3(shoulder_span + 0.4, 3.0, 0.5)
+				boundaries, StringName("%sWall%d" % [side_name, index]),
+				center + basis * Vector3(side * half_width, 0.0, 0.0),
+				Vector3(0.4, 3.0, z_length), yaw
 			)
+	## Wide rooms need authored shoulders around each diagonal doorway. Corridor
+	## side walls alone cannot close the unused part of a room's open edge.
+	_add_room_edge_caps(boundaries, &"DeepExitBack", 0.0, 3.55, 7.1, 3.5)
+	_add_room_edge_caps(boundaries, &"GateFront", -4.0, -3.95, 12.0, 3.5)
+	_add_room_edge_caps(boundaries, &"GateBack", -4.0, -10.05, 12.0, 5.0)
+	_add_room_edge_caps(boundaries, &"CourtyardFront", 4.0, -21.95, 14.0, 5.0)
+	_add_room_edge_caps(boundaries, &"CourtyardBack", 4.0, -32.05, 14.0, 3.7)
+	_add_room_edge_caps(boundaries, &"ArenaFront", -2.0, -36.95, 18.0, 3.7)
 	_add_invisible_wall(
 		boundaries, &"ForegroundCap", Vector3(0.0, 1.5, 12.45),
 		Vector3(11.8, 3.0, 0.4)
 	)
 	_add_invisible_wall(
-		boundaries, &"RearCap", Vector3(0.0, 1.5, -54.25),
-		Vector3(16.8, 3.0, 0.4)
+		boundaries, &"RearCap", Vector3(-2.0, 1.5, -51.25),
+		Vector3(18.8, 3.0, 0.4)
 	)
 
 
+func _add_room_edge_caps(
+	parent: Node3D,
+	cap_name: StringName,
+	opening_x: float,
+	z: float,
+	room_width: float,
+	opening_width: float
+) -> void:
+	var side_span: float = (room_width - opening_width) * 0.5
+	if side_span <= 0.05:
+		return
+	var room_left: float = opening_x - room_width * 0.5
+	for side: int in range(2):
+		var center_x: float = (
+			room_left + side_span * 0.5
+			if side == 0
+			else opening_x + opening_width * 0.5 + side_span * 0.5
+		)
+		_add_invisible_wall(
+			parent, StringName("%s%d" % [cap_name, side]),
+			Vector3(center_x, 1.5, z), Vector3(side_span + 0.25, 3.0, 0.45)
+		)
+
+
 func _add_invisible_wall(
-	parent: Node3D, wall_name: StringName, center: Vector3, size: Vector3
+	parent: Node3D,
+	wall_name: StringName,
+	center: Vector3,
+	size: Vector3,
+	yaw: float = 0.0
 ) -> void:
 	var wall := StaticBody3D.new()
 	wall.name = wall_name
 	wall.position = center
+	wall.rotation_degrees.y = yaw
 	wall.collision_layer = 1
 	wall.collision_mask = 0
 	var collision := CollisionShape3D.new()
@@ -862,6 +930,37 @@ func _add_ruin_pillar(parent: Node3D, block_name: StringName, center: Vector3, w
 ## has something to follow. The old running bond is deliberately weathered by
 ## uneven cells, missing edges, settlement and occasional corrupted stones.
 ## Visual only: the slabs sit a few millimetres above the floor and carry no collision.
+func _add_stone_path_at_x(
+	parent: Node3D,
+	block_name: StringName,
+	x: float,
+	z_from: float,
+	z_to: float,
+	width: float
+) -> void:
+	var frame := Node3D.new()
+	frame.name = StringName("%sFrame" % block_name)
+	frame.position.x = x
+	parent.add_child(frame)
+	_add_stone_path(frame, block_name, z_from, z_to, width)
+
+
+func _add_oriented_stone_path(
+	parent: Node3D,
+	block_name: StringName,
+	center: Vector3,
+	length: float,
+	width: float,
+	yaw: float
+) -> void:
+	var frame := Node3D.new()
+	frame.name = StringName("%sFrame" % block_name)
+	frame.position = Vector3(center.x, 0.0, center.z)
+	frame.rotation_degrees.y = yaw
+	parent.add_child(frame)
+	_add_stone_path(frame, block_name, length * 0.5, -length * 0.5, width)
+
+
 func _add_stone_path(parent: Node3D, block_name: StringName, z_from: float, z_to: float, width: float) -> void:
 	## Grout gap between neighbouring slabs; the dark floor shows through it.
 	const SLAB_GAP: float = 0.018
@@ -1089,14 +1188,14 @@ func _build_depth_silhouettes() -> void:
 	silhouettes.name = &"DepthSilhouettes"
 	add_child(silhouettes)
 	_add_organic_cliff(
-		silhouettes, &"FarPillarLeft", Vector3(-3.8, 0.0, -10.5),
+		silhouettes, &"FarPillarLeft", Vector3(-8.4, 0.0, -10.5),
 		Vector3(1.35, 6.8, 1.6), -5.0, 1.65
 	)
 	_add_organic_cliff(
-		silhouettes, &"FarPillarRight", Vector3(3.9, 0.0, -33.5),
+		silhouettes, &"FarPillarRight", Vector3(8.9, 0.0, -32.5),
 		Vector3(1.6, 8.2, 1.8), 7.0, 1.8
 	)
-	_add_organic_cliff(silhouettes, &"FarPillarRear", Vector3(-5.4, 0.0, -49.5), Vector3(1.8, 9.0, 2.0), -4.0, 1.9)
+	_add_organic_cliff(silhouettes, &"FarPillarRear", Vector3(-7.4, 0.0, -48.5), Vector3(1.8, 9.0, 2.0), -4.0, 1.9)
 
 
 func _build_void_boundaries() -> void:
@@ -1109,23 +1208,29 @@ func _build_void_boundaries() -> void:
 	)
 	for index: int in CANYON_SEGMENTS.size():
 		var segment: Array = CANYON_SEGMENTS[index]
-		var z_center: float = float(segment[0])
-		var z_length: float = float(segment[1])
-		var path_half_width: float = float(segment[2])
+		var center := Vector3(float(segment[0]), 0.0, float(segment[1]))
+		var z_length: float = float(segment[2])
+		var path_half_width: float = float(segment[3])
+		var yaw: float = float(segment[4])
+		var basis := Basis(Vector3.UP, deg_to_rad(yaw))
 		for side: float in [-1.0, 1.0]:
 			var side_name: String = "Right" if side > 0.0 else "Left"
+			var outward: Vector3 = basis * Vector3(side, 0.0, 0.0)
+			var inner_point: Vector3 = center + outward * (path_half_width - 0.35)
+			var outer_point: Vector3 = center + outward * (path_half_width + 3.2)
 			_add_void_edge(
 				boundary,
 				StringName("%sDissolve%d" % [side_name, index]),
-				Vector3(side * (path_half_width + 2.35), 0.07, z_center),
+				center + outward * (path_half_width + 2.35) + Vector3.UP * 0.07,
 				Vector2(5.2, z_length + 3.0),
-				Vector2(side, 0.0),
-				path_half_width - 0.35,
-				path_half_width + 3.2
+				Vector2(outward.x, outward.z),
+				Vector2(inner_point.x, inner_point.z).dot(Vector2(outward.x, outward.z)),
+				Vector2(outer_point.x, outer_point.z).dot(Vector2(outward.x, outward.z)),
+				yaw
 			)
 	_add_void_edge(
-		boundary, &"RearDissolve", Vector3(0.0, 0.065, -55.0),
-		Vector2(20.0, 10.0), Vector2(0.0, -1.0), 50.0, 57.0
+		boundary, &"RearDissolve", Vector3(-2.0, 0.065, -53.0),
+		Vector2(22.0, 10.0), Vector2(0.0, -1.0), 49.0, 54.0
 	)
 	## A broken cliff face hides the rectangular end of the starting floor.
 	## Its uneven silhouette gives the foreground dissolve a physical source.
@@ -1151,12 +1256,13 @@ func _add_void_edge(
 	size: Vector2,
 	fade_axis: Vector2,
 	fade_start: float,
-	fade_end: float
+	fade_end: float,
+	yaw: float = 0.0
 ) -> void:
 	var edge := MeshInstance3D.new()
 	edge.name = edge_name
 	edge.position = position
-	edge.rotation_degrees.x = -90.0
+	edge.rotation_degrees = Vector3(-90.0, yaw, 0.0)
 	edge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var quad := QuadMesh.new()
 	quad.size = size
@@ -1193,15 +1299,15 @@ func _build_ground_detail_decals() -> void:
 	var details: Array = [
 		[Vector3(-1.55, 0.08, 9.8), Vector2(1.4, 0.9), 0, -18.0],
 		[Vector3(1.35, 0.08, 6.1), Vector2(1.1, 1.7), 2, 27.0],
-		[Vector3(-1.8, 0.08, -5.7), Vector2(1.5, 1.0), 1, 8.0],
-		[Vector3(2.1, 0.08, -8.3), Vector2(1.7, 1.2), 0, 42.0],
-		[Vector3(-1.25, 0.08, -15.4), Vector2(1.2, 1.8), 2, -31.0],
-		[Vector3(1.35, 0.08, -19.2), Vector2(1.0, 1.5), 1, 16.0],
-		[Vector3(-3.4, 0.08, -27.1), Vector2(2.2, 1.4), 0, 11.0],
-		[Vector3(3.2, 0.08, -30.8), Vector2(1.8, 1.2), 2, -24.0],
-		[Vector3(-0.8, 0.08, -36.6), Vector2(1.0, 1.5), 1, 35.0],
-		[Vector3(4.2, 0.08, -46.1), Vector2(2.4, 1.6), 0, -12.0],
-		[Vector3(-3.8, 0.08, -50.2), Vector2(1.8, 2.1), 2, 21.0],
+		[Vector3(-5.8, 0.08, -5.7), Vector2(1.5, 1.0), 1, 8.0],
+		[Vector3(-1.9, 0.08, -8.3), Vector2(1.7, 1.2), 0, 42.0],
+		[Vector3(-1.8, 0.08, -14.4), Vector2(1.2, 1.8), 2, -31.0],
+		[Vector3(1.7, 0.08, -20.2), Vector2(1.0, 1.5), 1, 16.0],
+		[Vector3(0.6, 0.08, -25.1), Vector2(2.2, 1.4), 0, 11.0],
+		[Vector3(7.2, 0.08, -28.8), Vector2(1.8, 1.2), 2, -24.0],
+		[Vector3(0.2, 0.08, -34.6), Vector2(1.0, 1.5), 1, 35.0],
+		[Vector3(2.2, 0.08, -43.1), Vector2(2.4, 1.6), 0, -12.0],
+		[Vector3(-5.8, 0.08, -47.2), Vector2(1.8, 2.1), 2, 21.0],
 	]
 	var decal_root := Node3D.new()
 	decal_root.name = &"GroundDetailDecals"
