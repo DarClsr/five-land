@@ -65,6 +65,13 @@ func _run_test() -> void:
 	_expect(exit_path.get_child_count() <= 15, "flagstone path batches tone and gloss variants")
 	for slab_batch: Node in exit_path.get_children():
 		_expect(slab_batch is MultiMeshInstance3D, "flagstone batches render through MultiMesh")
+	var grout_bed := route.get_node("DeepExit/ExitPathGroutBed") as MeshInstance3D
+	var grout_material := grout_bed.material_override as StandardMaterial3D
+	_expect(grout_material.emission_enabled, "recessed grout keeps a visible shadow floor")
+	_expect(
+		grout_material.albedo_color.get_luminance() >= 0.18,
+		"flagstone grout does not quantize to pure black"
+	)
 	var wall_visual: MeshInstance3D = route.get_node("DeepExit/BrokenRearWallLeft/Visual") as MeshInstance3D
 	var wall_material: ShaderMaterial = wall_visual.material_override as ShaderMaterial
 	_expect(wall_material != null, "deep exit stonework uses the stylized triplanar shader")

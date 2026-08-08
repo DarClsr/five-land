@@ -13,7 +13,7 @@ const CRACK_COLOR: Color = Color(0.11, 0.11, 0.1, 1.0)
 const RUIN_COLOR: Color = Color(0.38, 0.37, 0.33, 1.0)
 const ABYSS_GROUND_COLOR: Color = Color(0.14, 0.19, 0.2, 1.0)
 const ABYSS_STONE_COLOR: Color = Color(0.23, 0.3, 0.32, 1.0)
-const GROUT_COLOR: Color = Color(0.16, 0.17, 0.19, 1.0)
+const GROUT_COLOR: Color = Color(0.2, 0.19, 0.18, 1.0)
 
 ## Meters of world-space floor covered by one tile of a terrain texture.
 const TERRAIN_TILE_METERS: float = 2.5
@@ -943,10 +943,18 @@ func _add_stone_path(parent: Node3D, block_name: StringName, z_from: float, z_to
 				x_offset += surviving_side * edge_loss * 0.5
 			if _rng.randf() < 0.1:
 				## A missing strip reads as a chipped corner at the game's pixel scale.
-				var damage_ratio: float = _rng.randf_range(0.3, 0.4)
+				## Single-column paths must keep their full row depth; shortening
+				## one slab exposes the grout bed across the entire road.
+				var damage_ratio: float = (
+					_rng.randf_range(0.12, 0.2)
+					if columns == 1
+					else _rng.randf_range(0.22, 0.32)
+				)
 				var damage_side: float = -1.0 if _rng.randf() < 0.5 else 1.0
 				var damage_width: bool = (
-					_rng.randf() < 0.7 or row - last_length_damage_row <= 1
+					columns == 1
+					or _rng.randf() < 0.7
+					or row - last_length_damage_row <= 1
 				)
 				if damage_width:
 					var missing_width: float = slab_width * damage_ratio
@@ -1033,6 +1041,11 @@ func _get_grout_material() -> StandardMaterial3D:
 	_grout_material.albedo_color = GROUT_COLOR
 	_grout_material.roughness = 1.0
 	_grout_material.metallic = 0.0
+	## Recessed grout receives almost no direct light. A restrained emissive floor
+	## keeps the post-process from quantizing it to pure black.
+	_grout_material.emission_enabled = true
+	_grout_material.emission = GROUT_COLOR
+	_grout_material.emission_energy_multiplier = 0.3
 	return _grout_material
 
 
