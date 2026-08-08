@@ -7,7 +7,6 @@ const WALL_COLOR: Color = Color(0.47, 0.45, 0.39, 1.0)
 const CORRUPTION_COLOR: Color = Color(0.19, 0.28, 0.25, 1.0)
 const SEAL_COLOR: Color = Color(0.56, 0.45, 0.25, 1.0)
 const TOMBSTONE_COLOR: Color = Color(0.82, 0.81, 0.76, 1.0)
-const VEIN_COLOR: Color = Color(0.3, 0.55, 0.48, 1.0)
 const VEIN_GLOW: Color = Color(0.18, 0.42, 0.36, 1.0)
 const CRACK_COLOR: Color = Color(0.11, 0.11, 0.1, 1.0)
 const RUIN_COLOR: Color = Color(0.38, 0.37, 0.33, 1.0)
@@ -44,6 +43,17 @@ const PATH_TILE_METERS: float = 1.05
 const PATH_TONE_STEPS: int = 5
 const PATH_GLOSS_STEPS: int = 3
 
+## Pixel props use a 0.004 m source-pixel grid. Keeping authored sizes on
+## integer steps avoids subtly different sampling scales between neighbouring
+## 64 px assets while preserving their current world-space proportions.
+const PROP_PIXEL_STEP: float = 0.004
+const PROP_PIXEL_SMALL: float = PROP_PIXEL_STEP * 4.0
+const PROP_PIXEL_MEDIUM: float = PROP_PIXEL_STEP * 5.0
+const PROP_PIXEL_LARGE: float = PROP_PIXEL_STEP * 6.0
+const PROP_PIXEL_XL: float = PROP_PIXEL_STEP * 7.0
+const PROP_PIXEL_HERO: float = PROP_PIXEL_STEP * 8.0
+const PROP_PIXEL_GATE: float = 0.017
+
 ## Route segments: [x_center, z_center, length, path_half_width, yaw_degrees].
 ## Positive yaw bends the authored -Z route toward world -X.
 const CANYON_SEGMENTS: Array = [
@@ -74,6 +84,16 @@ const ROUGH_WALL_PIXEL_TEXTURE: Texture2D = preload("res://assets/textures/terra
 const BRIDGE_PIXEL_TEXTURE: Texture2D = preload("res://assets/textures/terrain/cave_bridge_64.png")
 const TIMBER_PIXEL_TEXTURE: Texture2D = preload("res://assets/textures/terrain/cave_timber_64.png")
 const MOSS_DECAL_TEXTURE: Texture2D = preload("res://assets/textures/terrain/cave_moss_decal_32.png")
+const ECHO_STELE_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_echo_stele_v1.png")
+const SOULFIRE_ALTAR_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_soulfire_altar_v1.png")
+const EARTH_MECHANISM_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_earth_mechanism_core_v1.png")
+const CHAIN_COUNTERWEIGHT_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_chain_counterweight_v1.png")
+const SEAL_PILLAR_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_seal_pillar_v1.png")
+const RUNE_FRAGMENTS_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_rune_fragments_v1.png")
+const GUIDE_LANTERN_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_guide_lantern_v1.png")
+const CHAIN_BRAZIER_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_chain_brazier_v1.png")
+const BOSS_SEAL_GATE_TEXTURE: Texture2D = preload("res://assets/props/xumen/pixel/xumen_boss_seal_gate_v1.png")
+const GATE_CONTROLLER_SCRIPT: Script = preload("res://scripts/world/boss_gate_controller.gd")
 # Legacy semantic slots now deliberately resolve to the authored pixel set.
 const GROUND_SOIL_TEXTURE: Texture2D = ROUGH_GROUND_PIXEL_TEXTURE
 const GRAVE_STONE_TEXTURE: Texture2D = ROUGH_WALL_PIXEL_TEXTURE
@@ -107,8 +127,10 @@ func _ready() -> void:
 	_build_bridge()
 	_build_fog_abyss_cemetery()
 	_build_xumen_gate()
+	_build_small_branch()
 	_build_burial_road()
 	_build_seal_courtyard()
+	_build_mechanism_branch()
 	_build_boss_approach()
 	_build_boss_arena()
 	_build_navigation_boundaries()
@@ -120,6 +142,43 @@ func _ready() -> void:
 
 func has_section(section_name: StringName) -> bool:
 	return has_node(NodePath(section_name))
+
+
+func resolve_seal(branch_name: StringName) -> void:
+	var post_name: StringName = &"SealPost1" if branch_name == &"SmallBranch" else &"SealPost3"
+	_set_body_enabled(get_node("SealCourtyard/%s" % post_name) as StaticBody3D, false)
+	_set_body_enabled(get_node("%s/BranchSeal" % branch_name) as StaticBody3D, false)
+
+
+func open_boss_gate() -> void:
+	var gate := get_node("GravePassage/BossGate") as StaticBody3D
+	if gate.has_method(&"open_gate"):
+		gate.call(&"open_gate")
+	else:
+		_set_body_enabled(gate, false)
+	_set_body_enabled(get_node("SealCourtyard/SealPost2") as StaticBody3D, false)
+
+
+func reset_seals() -> void:
+	for body_path: String in [
+		"SmallBranch/BranchSeal",
+		"MechanismBranch/BranchSeal",
+		"SealCourtyard/SealPost1",
+		"SealCourtyard/SealPost2",
+		"SealCourtyard/SealPost3",
+	]:
+		_set_body_enabled(get_node(body_path) as StaticBody3D, true)
+	var gate := get_node("GravePassage/BossGate") as StaticBody3D
+	if gate.has_method(&"reset_state"):
+		gate.call(&"reset_state")
+	else:
+		_set_body_enabled(gate, true)
+
+
+func _set_body_enabled(body: StaticBody3D, enabled: bool) -> void:
+	body.visible = enabled
+	var collision: CollisionShape3D = body.get_node("CollisionShape3D") as CollisionShape3D
+	collision.set_deferred("disabled", not enabled)
 
 
 func _build_deep_exit() -> void:
@@ -364,6 +423,24 @@ func _build_xumen_gate() -> void:
 	_add_stone_path_at_x(section, &"GatePath", -4.0, -4.0, -10.0, 2.6)
 
 
+func _build_small_branch() -> void:
+	var section: Node3D = _create_section(
+		&"SmallBranch", Vector3(-8.0, -0.05, -5.5), Vector3(3.4, 0.12, 3.0),
+		BRIDGE_COLOR, BRIDGE_PIXEL_TEXTURE
+	)
+	_make_pixel_prop_body(
+		section, &"BranchSeal", Vector3(-8.55, 0.62, -5.15),
+		SEAL_PILLAR_TEXTURE, PROP_PIXEL_LARGE, Vector3(0.55, 1.6, 0.55)
+	)
+	_make_pixel_prop_body(
+		section, &"MemoryStele", Vector3(-8.95, 0.65, -6.25),
+		ECHO_STELE_TEXTURE, PROP_PIXEL_LARGE, Vector3(0.65, 1.55, 0.45)
+	)
+	_add_pixel_prop(section, &"SoulfireAltar", Vector3(-7.15, 0.36, -6.25), SOULFIRE_ALTAR_TEXTURE, PROP_PIXEL_MEDIUM)
+	_add_pixel_prop(section, &"RuneFragments", Vector3(-7.15, 0.13, -4.75), RUNE_FRAGMENTS_TEXTURE, PROP_PIXEL_SMALL)
+	_add_crack(section, &"BranchCrack", Vector3(-7.4, 0.02, -4.9), Vector3(1.6, 0.06, 0.14))
+
+
 func _build_burial_road() -> void:
 	var center := Vector3(0.0, -0.2, -16.5)
 	var section: Node3D = _create_section(
@@ -394,9 +471,11 @@ func _build_seal_courtyard() -> void:
 	_add_side_rails(section, Vector3(4.0, 0.0, -27.0), Vector2(14.0, 10.0))
 	for index: int in range(3):
 		var x_position: float = 1.0 + index * 3.0
-		_add_block(section, StringName("SealPost%d" % (index + 1)), Vector3(x_position, 1.15, -27.5), Vector3(0.8, 2.3, 0.8), SEAL_COLOR)
-	_add_block(section, &"GraveGateLeft", Vector3(1.7, 1.8, -31.1), Vector3(1.2, 3.6, 1.1), WALL_COLOR)
-	_add_block(section, &"GraveGateRight", Vector3(6.3, 1.8, -31.1), Vector3(1.2, 3.6, 1.1), WALL_COLOR)
+		_make_pixel_prop_body(
+			section, StringName("SealPost%d" % (index + 1)), Vector3(x_position, 1.15, -27.5),
+			SEAL_PILLAR_TEXTURE, PROP_PIXEL_HERO, Vector3(0.8, 2.3, 0.8)
+		)
+	_add_pixel_prop(section, &"GuideLantern", Vector3(7.7, 0.42, -29.6), GUIDE_LANTERN_TEXTURE, PROP_PIXEL_MEDIUM)
 	_add_crack(section, &"CourtyardCrack", Vector3(4.0, 0.01, -25.5), Vector3(3.2, 0.06, 0.18))
 	_add_vein_patch(section, &"VeinCourtyard1", Vector3(-1.2, 0.02, -26.0), Vector3(0.5, 0.08, 2.2))
 	_add_vein_patch(section, &"VeinCourtyard2", Vector3(9.0, 0.02, -28.5), Vector3(2.4, 0.08, 0.5))
@@ -409,6 +488,23 @@ func _build_seal_courtyard() -> void:
 	_add_dead_tree(section, &"CourtyardTree", Vector3(-2.6, 0.0, -29.0), 3.0)
 
 
+func _build_mechanism_branch() -> void:
+	var section: Node3D = _create_section(
+		&"MechanismBranch", Vector3(8.0, -0.05, -25.0), Vector3(3.6, 0.12, 3.2),
+		BRIDGE_COLOR, BRIDGE_PIXEL_TEXTURE
+	)
+	_make_pixel_prop_body(
+		section, &"BranchSeal", Vector3(8.0, 0.93, -25.0),
+		EARTH_MECHANISM_TEXTURE, PROP_PIXEL_XL, Vector3(0.85, 1.85, 0.85)
+	)
+	_make_pixel_prop_body(
+		section, &"Counterweight", Vector3(9.0, 0.65, -25.7),
+		CHAIN_COUNTERWEIGHT_TEXTURE, PROP_PIXEL_MEDIUM, Vector3(0.45, 1.3, 0.45)
+	)
+	_add_pixel_prop(section, &"ChainBrazier", Vector3(7.0, 0.36, -25.7), CHAIN_BRAZIER_TEXTURE, PROP_PIXEL_MEDIUM)
+	_add_vein_patch(section, &"MechanismVein", Vector3(6.7, 0.02, -25.0), Vector3(1.8, 0.08, 0.4))
+
+
 func _build_boss_approach() -> void:
 	var center := Vector3(1.0, -0.2, -34.0)
 	var section: Node3D = _create_section(
@@ -416,6 +512,12 @@ func _build_boss_approach() -> void:
 		BRIDGE_COLOR, GRAVE_STONE_TEXTURE, 50.0
 	)
 	_add_side_rails(section, Vector3(1.0, 0.0, -34.0), Vector2(3.7, 8.2), null, 0.85, 50.0)
+	var gate_center := center + Basis(Vector3.UP, deg_to_rad(50.0)) * Vector3(0.0, 1.5, 3.6)
+	var boss_gate := _make_pixel_prop_body(
+		section, &"BossGate", gate_center, BOSS_SEAL_GATE_TEXTURE, PROP_PIXEL_GATE,
+		Vector3(3.8, 3.4, 0.7)
+	)
+	boss_gate.rotation_degrees.y = 50.0
 	_add_vein_patch(section, &"VeinPassage", Vector3(-0.2, 0.02, -35.0), Vector3(0.6, 0.08, 2.6))
 	_add_tombstone(section, &"PassageTomb", Vector3(2.4, 0.0, -33.4), 0.7, 1.3)
 	_add_ruin_pillar(section, &"PassagePillar", Vector3(-2.0, 0.0, -36.5), 0.5, 2.8)
@@ -498,8 +600,8 @@ func _add_canyon_side(
 	yaw: float,
 	side: float
 ) -> void:
-	const BLOCK_DEPTH: float = 2.8
-	const BLOCK_WIDTH: float = 2.4
+	const BLOCK_DEPTH: float = 2.2
+	const BLOCK_WIDTH: float = 2.0
 	var step: float = 2.4
 	var count: int = int(ceil(z_length / step)) + 1
 	var center := Vector3(x_center, 0.0, z_center)
@@ -514,9 +616,9 @@ func _add_canyon_side(
 		## Camera-facing blocks frame the floor instead of covering it. Rear walls
 		## keep the full canyon height while foreground walls drop below the actor.
 		var height: float = (
-			_rng.randf_range(2.4, 4.0)
+			_rng.randf_range(0.9, 1.7)
 			if world_position.z > center.z + 0.35
-			else _rng.randf_range(5.0, 8.5)
+			else _rng.randf_range(4.5, 7.0)
 		)
 		var cliff := _add_organic_cliff(
 			backdrop, StringName("Canyon%s%d_%d" % [side_tag, segment_index, index]),
@@ -526,7 +628,7 @@ func _add_canyon_side(
 			0.62
 		)
 		cliff.add_to_group(&"camera_foreground")
-		cliff.transparency = 0.18
+		cliff.transparency = 0.58
 
 
 func _add_organic_cliff(
@@ -880,15 +982,27 @@ func _add_dead_tree(parent: Node3D, block_name: StringName, center: Vector3, hei
 
 ## A low emissive vein streak on the floor (green earth veins).
 func _add_vein_patch(parent: Node3D, block_name: StringName, center: Vector3, size: Vector3) -> void:
-	var body: StaticBody3D = _make_decor_body(parent, block_name, center, size, VEIN_COLOR)
-	var glow: MeshInstance3D = body.get_node("Visual") as MeshInstance3D
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = VEIN_COLOR
-	material.roughness = 0.8
+	var vein := MeshInstance3D.new()
+	vein.name = block_name
+	vein.position = center + Vector3.UP * 0.045
+	vein.rotation_degrees.x = -90.0
+	vein.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size.x, size.z)
+	vein.mesh = quad
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_texture = MOSS_DECAL_TEXTURE
+	material.albedo_color = Color(0.34, 0.72, 0.62, 0.38)
+	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	material.emission_enabled = true
+	material.emission_texture = MOSS_DECAL_TEXTURE
 	material.emission = VEIN_GLOW
-	material.emission_energy_multiplier = 1.4
-	glow.material_override = material
+	material.emission_energy_multiplier = 0.3
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	vein.material_override = material
+	parent.add_child(vein)
 
 
 ## A dark corruption stain on the floor.
@@ -1183,6 +1297,69 @@ func _make_decor_body(
 	return body
 
 
+func _make_pixel_prop_body(
+	parent: Node3D,
+	prop_name: StringName,
+	center: Vector3,
+	texture: Texture2D,
+	pixel_size: float,
+	collision_size: Vector3
+) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = prop_name
+	body.position = center
+	if texture == BOSS_SEAL_GATE_TEXTURE:
+		## The boss gate owns its full presentation: split door leaves, stone
+		## frame, ground contact, state lights and particles are all built by
+		## the controller so opening stays animated instead of a hard hide.
+		body.set_script(GATE_CONTROLLER_SCRIPT)
+		parent.add_child(body)
+		return body
+	parent.add_child(body)
+	body.add_child(_make_pixel_sprite(&"Visual", texture, pixel_size))
+	if texture in [EARTH_MECHANISM_TEXTURE, SEAL_PILLAR_TEXTURE, BOSS_SEAL_GATE_TEXTURE]:
+		body.add_to_group(&"rune_source")
+	if texture == EARTH_MECHANISM_TEXTURE:
+		body.add_to_group(&"mechanism_motion")
+	var collision := CollisionShape3D.new()
+	collision.name = &"CollisionShape3D"
+	var box := BoxShape3D.new()
+	box.size = collision_size
+	collision.shape = box
+	body.add_child(collision)
+	return body
+
+
+func _add_pixel_prop(
+	parent: Node3D,
+	prop_name: StringName,
+	position: Vector3,
+	texture: Texture2D,
+	pixel_size: float
+) -> Sprite3D:
+	var sprite := _make_pixel_sprite(prop_name, texture, pixel_size)
+	sprite.position = position
+	parent.add_child(sprite)
+	return sprite
+
+
+func _make_pixel_sprite(
+	sprite_name: StringName, texture: Texture2D, pixel_size: float
+) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.name = sprite_name
+	sprite.texture = texture
+	sprite.pixel_size = pixel_size
+	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	## The sprites keep their authored baked values, but participate in the
+	## restrained Forward+ lights and cast alpha-tested contact shadows.
+	sprite.shaded = true
+	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+	return sprite
+
+
 func _build_depth_silhouettes() -> void:
 	var silhouettes := Node3D.new()
 	silhouettes.name = &"DepthSilhouettes"
@@ -1246,7 +1423,7 @@ func _build_void_boundaries() -> void:
 			0.58
 		)
 		foreground_cliff.add_to_group(&"camera_foreground")
-		foreground_cliff.transparency = 0.18
+		foreground_cliff.transparency = 0.58
 
 
 func _add_void_edge(

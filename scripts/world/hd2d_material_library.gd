@@ -41,5 +41,6 @@ static func get_stone(
 	material.set_shader_parameter(&"use_normal_texture", false)
 	material.set_shader_parameter(&"derive_normal_from_albedo", texture != null)
 	material.set_shader_parameter(&"strength", displacement_strength)
+	material.set_shader_parameter(&"tiling_warp", 0.3)
 	_stone_materials[key] = material
 	return material

@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/prologue_greybox_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/world/greybox_route.gd" id="2_route"]
@@ -13,11 +13,17 @@ size = Vector3(8, 3, 7)
 [sub_resource type="BoxShape3D" id="BoxShape_xumen_gate"]
 size = Vector3(12, 3, 6)
 
+[sub_resource type="BoxShape3D" id="BoxShape_small_branch"]
+size = Vector3(3, 3, 3)
+
 [sub_resource type="BoxShape3D" id="BoxShape_burial_road"]
 size = Vector3(5, 3, 16)
 
 [sub_resource type="BoxShape3D" id="BoxShape_seal_courtyard"]
 size = Vector3(14, 3, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape_mechanism_branch"]
+size = Vector3(3, 3, 3)
 
 [sub_resource type="BoxShape3D" id="BoxShape_boss_arena"]
 size = Vector3(18, 3, 14)
@@ -39,14 +45,14 @@ sky = SubResource("Sky_prologue")
 ambient_light_source = 3
 ambient_light_color = Color(0.10196, 0.12549, 0.25098, 1)
 ambient_light_sky_contribution = 0.42
-ambient_light_energy = 0.17
+ambient_light_energy = 0.16
 tonemap_mode = 4
-tonemap_exposure = 1.08
+tonemap_exposure = 1.03
 tonemap_agx_white = 1.15
 tonemap_agx_contrast = 1.12
 ssao_enabled = true
 ssao_radius = 1.15
-ssao_intensity = 1.95
+ssao_intensity = 1.65
 ssao_power = 1.25
 ssao_detail = 0.8
 ssao_horizon = 0.08
@@ -59,21 +65,21 @@ ssr_fade_in = 0.4
 ssr_fade_out = 6.0
 ssr_depth_tolerance = 0.35
 fog_enabled = true
-fog_light_color = Color(0.22, 0.19, 0.17, 1)
+fog_light_color = Color(0.13, 0.16, 0.19, 1)
 fog_density = 0.006
 volumetric_fog_enabled = true
 volumetric_fog_density = 0.008
-volumetric_fog_albedo = Color(0.42, 0.37, 0.33, 1)
+volumetric_fog_albedo = Color(0.28, 0.33, 0.37, 1)
 volumetric_fog_emission = Color(0.004, 0.003, 0.002, 1)
 volumetric_fog_length = 36.0
 volumetric_fog_detail_spread = 2.0
 glow_enabled = true
 glow_normalized = true
-glow_intensity = 0.6
-glow_strength = 0.8
-glow_bloom = 0.22
-glow_hdr_threshold = 0.8
-glow_hdr_scale = 1.45
+glow_intensity = 0.45
+glow_strength = 0.65
+glow_bloom = 0.12
+glow_hdr_threshold = 1.05
+glow_hdr_scale = 1.25
 glow_blend_mode = 0
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributes_hd2d"]
@@ -131,6 +137,14 @@ collision_mask = 32
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Triggers/XumenGate"]
 shape = SubResource("BoxShape_xumen_gate")
 
+[node name="SmallBranch" type="Area3D" parent="Triggers"]
+position = Vector3(-8, 1.5, -5.5)
+collision_layer = 0
+collision_mask = 32
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Triggers/SmallBranch"]
+shape = SubResource("BoxShape_small_branch")
+
 [node name="BurialRoad" type="Area3D" parent="Triggers"]
 position = Vector3(0, 1.5, -16.5)
 rotation = Vector3(0, -0.523599, 0)
@@ -147,6 +161,14 @@ collision_mask = 32
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Triggers/SealCourtyard"]
 shape = SubResource("BoxShape_seal_courtyard")
+
+[node name="MechanismBranch" type="Area3D" parent="Triggers"]
+position = Vector3(8, 1.5, -25)
+collision_layer = 0
+collision_mask = 32
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Triggers/MechanismBranch"]
+shape = SubResource("BoxShape_mechanism_branch")
 
 [node name="BossArena" type="Area3D" parent="Triggers"]
 position = Vector3(-2, 1.5, -44)

@@ -13,6 +13,9 @@ uniform float triplanar_scale : hint_range(0.05, 8.0, 0.05) = 1.15;
 uniform float triplanar_sharpness : hint_range(1.0, 16.0, 0.5) = 6.0;
 uniform float pixel_world_size : hint_range(0.01, 0.5, 0.01) = 0.08;
 uniform float color_steps : hint_range(0.0, 32.0, 1.0) = 12.0;
+// Low-frequency world-space warp that breaks the visible grid of repeated
+// triplanar tiles without introducing seams between neighbouring surfaces.
+uniform float tiling_warp : hint_range(0.0, 1.0, 0.01) = 0.0;
 
 uniform sampler2D normal_texture : hint_normal, filter_nearest_mipmap, repeat_enable;
 uniform bool use_normal_texture = false;
@@ -151,6 +154,11 @@ void vertex() {
 void fragment() {
 	vec3 snapped_position = floor(world_position / pixel_world_size + 0.5) * pixel_world_size;
 	vec3 map_position = snapped_position * triplanar_scale;
+	if (tiling_warp > 0.001) {
+		vec2 warp_uv = vec2(world_position.x + world_position.z * 0.37, world_position.z - world_position.x * 0.29);
+		float warp = (vnoise(warp_uv * 0.11) - 0.5) * tiling_warp;
+		map_position += vec3(warp, warp, warp) * triplanar_scale;
+	}
 	vec3 weights = blend_weights(world_normal);
 	vec3 surface_color = albedo_color.rgb;
 	vec3 texture_detail = vec3(1.0);

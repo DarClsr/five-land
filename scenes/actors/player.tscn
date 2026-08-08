@@ -10,17 +10,17 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_player_hd"]
 shader = ExtResource("6_hd_sprite_shader")
 shader_parameter/alpha_scissor_threshold = 0.1
-shader_parameter/outline_color = Color(0.26, 0.34, 0.43, 0.34)
-shader_parameter/outline_width = 3.0
+shader_parameter/outline_color = Color(0.3, 0.43, 0.55, 0.48)
+shader_parameter/outline_width = 2.0
 shader_parameter/character_brightness = 1.16
 shader_parameter/character_saturation = 1.08
 shader_parameter/vermilion_boost = 0.05
-shader_parameter/rim_color = Color(1, 0.68, 0.42, 1)
-shader_parameter/rim_strength = 0.38
+shader_parameter/rim_color = Color(0.56, 0.72, 0.86, 1)
+shader_parameter/rim_strength = 0.27
 shader_parameter/rim_direction = Vector2(-0.72, -0.69)
-shader_parameter/rim_fill = 1.0
+shader_parameter/rim_fill = 0.48
 shader_parameter/warm_light_color = Color(1, 0.62, 0.28, 1)
-shader_parameter/warm_light_strength = 0.3
+shader_parameter/warm_light_strength = 0.1
 shader_parameter/cold_shadow_color = Color(0.16, 0.24, 0.42, 1)
 shader_parameter/cold_shadow_strength = 0.25
 shader_parameter/weapon_emission_color = Color(0.816, 0.91, 1, 1)
@@ -67,14 +67,14 @@ render_priority = 1
 position = Vector3(0, 0.03, 0)
 rotation = Vector3(-1.5707963, 0, 0)
 pixel_size = 0.0072
-no_depth_test = true
+texture_filter = 0
 texture = SubResource("GradientTexture2D_shadow")
 
 [node name="ReadabilityLight" type="OmniLight3D" parent="."]
 position = Vector3(0, 1.2, 0)
 light_color = Color(0.46, 0.58, 0.62, 1)
-light_energy = 0.68
-omni_range = 2.9
+light_energy = 0.46
+omni_range = 2.5
 omni_attenuation = 2.0
 
 [node name="HealthComponent" parent="." instance=ExtResource("2_health")]

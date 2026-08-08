@@ -15,6 +15,22 @@ const PIXEL_EMISSIVE_GRID_SHADER: Shader = preload("res://assets/shaders/pixel_e
 const ROUGH_STONE_TEXTURE: Texture2D = preload("res://assets/textures/terrain/cave_rock_wall_64.png")
 const LANTERN_GRATE_TEXTURE: Texture2D = preload("res://assets/textures/terrain/cave_lantern_grate_8.png")
 
+## Runtime budgets are kept here so low-end tuning never requires hunting
+## through scene nodes or changing authored level content.
+const EFFECT_CULL_INTERVAL: float = 0.2
+const EFFECT_DISTANCE: float = 18.0
+const MAX_ACTIVE_LANTERNS: int = 5
+const MAX_SHADOWED_LANTERNS: int = 3
+const MAX_ACTIVE_AMBIENT_EMITTERS: int = 3
+const MAX_RUNE_LIGHTS: int = 6
+const TORCH_RANGE: float = 7.2
+const TORCH_CORE_EMISSION: float = 3.25
+const TORCH_GROUND_GLOW_ALPHA: float = 0.18
+const TORCH_SPARK_COUNT: int = 7
+const DUST_PARTICLE_COUNT: int = 96
+const CORRUPTION_PARTICLE_COUNT: int = 72
+const RUNE_COLOR: Color = Color(0.28, 0.82, 0.78, 1.0)
+
 ## Lantern rhythm: [position, base_energy, phase, lit]. Paired lamps mark the
 ## bridge thresholds; single lamps alternate along the safe route, while the
 ## last pair at the far bridge threshold has gone dark.
@@ -31,7 +47,9 @@ const LANTERNS: Array = [
 	[Vector3(-2.4, 0.0, -13.0), 1.9, 2.4, true],
 	[Vector3(2.1, 0.0, -20.8), 1.8, 3.7, true],
 	[Vector3(9.25, 0.0, -27.1), 2.25, 5.0, true],
-	[Vector3(1.2, 0.0, -34.0), 1.6, 1.9, true],
+	[Vector3(2.3, 0.0, -25.9), 1.9, 2.9, true],
+	[Vector3(4.0, 0.0, -29.2), 1.95, 4.2, true],
+	[Vector3(1.2, 0.0, -34.0), 1.25, 1.9, true],
 	[Vector3(5.0, 0.0, -44.4), 2.6, 3.2, true],
 ]
 
@@ -50,9 +68,20 @@ const CORRUPTION_EMITTERS: Array = [
 var _lantern_lights: Array[OmniLight3D] = []
 var _lantern_energy: Array[float] = []
 var _lantern_phases: Array[float] = []
+var _lantern_core_materials: Array[ShaderMaterial] = []
+var _lantern_glow_materials: Array[StandardMaterial3D] = []
+var _lantern_sparks: Array[GPUParticles3D] = []
+var _ambient_emitters: Array[GPUParticles3D] = []
+var _rune_lights: Array[OmniLight3D] = []
+var _guide_lights: Array[OmniLight3D] = []
+var _rune_visuals: Array[Sprite3D] = []
+var _rune_base_modulates: Array[Color] = []
+var _mechanism_visuals: Array[Sprite3D] = []
 var _time: float = 0.0
 var _light_cull_time: float = 0.0
 var _camera: Camera3D
+var _player: Node3D
+var _player_material: ShaderMaterial
 static var _shared_soft_dot_texture: ImageTexture
 
 
@@ -61,36 +90,102 @@ func _ready() -> void:
 	_build_deep_exit_crevice_light()
 	_build_height_fog()
 	_build_lanterns()
+	_build_rune_effects()
+	_build_boss_gate_guidance()
 	_build_dust()
 	_build_corruption()
+	_cache_player_material()
+	_update_effect_visibility()
 
 
 func _process(delta: float) -> void:
 	_time += delta
 	_light_cull_time -= delta
 	if _light_cull_time <= 0.0:
-		_light_cull_time = 0.2
-		_update_lantern_visibility()
+		_light_cull_time = EFFECT_CULL_INTERVAL
+		_update_effect_visibility()
 	for i: int in _lantern_lights.size():
 		var light: OmniLight3D = _lantern_lights[i]
 		if not light.visible:
 			continue
 		var base: float = _lantern_energy[i]
-		var breath: float = 0.82 + 0.18 * sin(_time * 1.9 + _lantern_phases[i])
-		light.light_energy = base * breath
+		var phase: float = _lantern_phases[i]
+		## Three incommensurate waves avoid the metronomic pulse of one sine.
+		var flicker: float = 0.88 \
+			+ sin(_time * 1.73 + phase) * 0.07 \
+			+ sin(_time * 4.37 + phase * 1.7) * 0.035 \
+			+ sin(_time * 7.91 + phase * 0.6) * 0.015
+		light.light_energy = base * flicker
+		_lantern_core_materials[i].set_shader_parameter(
+			&"emission_energy", TORCH_CORE_EMISSION * flicker
+		)
+		var glow_material: StandardMaterial3D = _lantern_glow_materials[i]
+		if glow_material != null:
+			var glow_color: Color = glow_material.albedo_color
+			glow_color.a = TORCH_GROUND_GLOW_ALPHA * flicker
+			glow_material.albedo_color = glow_color
+			glow_material.emission_energy_multiplier = 0.38 * flicker
+	_update_runes_and_mechanisms()
+	_update_player_torch_influence()
 
 
 func _update_lantern_visibility() -> void:
+	_update_effect_visibility()
+
+
+func _update_effect_visibility() -> void:
 	if _camera == null or not is_instance_valid(_camera):
 		_camera = get_viewport().get_camera_3d()
 	if _camera == null:
 		return
-	const ACTIVE_DISTANCE_SQUARED: float = 18.0 * 18.0
+	var active_lights: int = 0
+	var active_shadows: int = 0
+	var active_distance_squared: float = EFFECT_DISTANCE * EFFECT_DISTANCE
 	for light: OmniLight3D in _lantern_lights:
-		var is_lit: bool = bool(light.get_meta(&"lit", true))
-		light.visible = is_lit and light.global_position.distance_squared_to(
+		light.visible = false
+		light.shadow_enabled = false
+	## Nearest lights win the active cap, otherwise array order would starve
+	## later route sections whose lamps sit closer to the camera.
+	var candidates: Array = []
+	for index: int in _lantern_lights.size():
+		var light: OmniLight3D = _lantern_lights[index]
+		if not bool(light.get_meta(&"lit", true)):
+			_lantern_sparks[index].emitting = false
+			continue
+		candidates.append({
+			"light": light,
+			"index": index,
+			"distance": light.global_position.distance_squared_to(_camera.global_position),
+		})
+	candidates.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return a.distance < b.distance
+	)
+	for entry: Dictionary in candidates:
+		var light: OmniLight3D = entry.light
+		if entry.distance > active_distance_squared or active_lights >= MAX_ACTIVE_LANTERNS:
+			_lantern_sparks[entry.index].emitting = false
+			continue
+		light.visible = true
+		light.shadow_enabled = active_shadows < MAX_SHADOWED_LANTERNS
+		_lantern_sparks[entry.index].emitting = true
+		active_lights += 1
+		active_shadows += 1 if light.shadow_enabled else 0
+	var active_ambient: int = 0
+	for emitter: GPUParticles3D in _ambient_emitters:
+		var in_range: bool = emitter.global_position.distance_squared_to(
 			_camera.global_position
-		) <= ACTIVE_DISTANCE_SQUARED
+		) <= active_distance_squared
+		emitter.emitting = in_range and active_ambient < MAX_ACTIVE_AMBIENT_EMITTERS
+		active_ambient += 1 if emitter.emitting else 0
+	for light: OmniLight3D in _rune_lights:
+		light.visible = light.get_parent().is_visible_in_tree() and light.global_position.distance_squared_to(
+			_camera.global_position
+		) <= active_distance_squared
+	for light: OmniLight3D in _guide_lights:
+		light.visible = light.global_position.distance_squared_to(
+			_camera.global_position
+		) <= active_distance_squared
 
 
 func _build_lanterns() -> void:
@@ -98,7 +193,7 @@ func _build_lanterns() -> void:
 		var position: Vector3 = entry[0]
 		var is_deep_exit: bool = position.z > 5.0
 		var is_lit: bool = bool(entry[3])
-		var energy: float = float(entry[1]) * (1.72 if is_deep_exit else 1.18)
+		var energy: float = float(entry[1]) * (1.18 if is_deep_exit else 1.02)
 		var phase: float = entry[2]
 		var lantern: Node3D = Node3D.new()
 		lantern.name = &"Lantern"
@@ -107,22 +202,29 @@ func _build_lanterns() -> void:
 
 		_build_stone_lantern(lantern, is_lit)
 		_add_lantern_companion(lantern, int(_lantern_lights.size()))
+		var core := lantern.get_node("StonePart3") as MeshInstance3D
+		_lantern_core_materials.append(core.material_override as ShaderMaterial)
+		var glow_material: StandardMaterial3D
 		if is_lit:
-			_add_lantern_ground_glow(lantern, 1.35 if is_deep_exit else 1.22)
+			glow_material = _add_lantern_ground_glow(
+				lantern, 1.0 if is_deep_exit else 0.9
+			)
+		_lantern_glow_materials.append(glow_material)
+		_lantern_sparks.append(_add_flame_sparks(lantern, is_lit))
 
 		var light: OmniLight3D = OmniLight3D.new()
 		light.light_color = LANTERN_COLOR
 		light.light_energy = energy
-		light.omni_range = 10.8 if is_deep_exit else 11.2
+		light.omni_range = TORCH_RANGE
 		## Godot's attenuation exponent of 2.0 gives a smooth inverse-square
 		## falloff instead of the old bright sphere / hard range boundary.
 		light.omni_attenuation = 2.0
-		light.shadow_enabled = is_deep_exit
-		light.shadow_opacity = 0.64
+		light.shadow_enabled = false
+		light.shadow_opacity = 0.45
 		light.shadow_bias = 0.08
-		light.shadow_normal_bias = 0.55
+		light.shadow_normal_bias = 0.4
 		light.light_size = 0.42
-		light.light_volumetric_fog_energy = 0.42 if is_deep_exit else 0.0
+		light.light_volumetric_fog_energy = 0.24 if is_deep_exit else 0.06
 		light.position = Vector3(0.0, 1.34 if is_deep_exit else 1.7, 0.0)
 		light.set_meta(&"lit", is_lit)
 		light.visible = is_lit
@@ -168,8 +270,8 @@ func _build_deep_exit_crevice_light() -> void:
 	light.position = Vector3(3.0, 4.6, 4.3)
 	light.look_at_from_position(light.position, Vector3(0.7, 0.05, 3.4), Vector3.UP)
 	light.light_color = Color(1.0, 0.69, 0.39, 1.0)
-	light.light_energy = 2.15
-	light.light_volumetric_fog_energy = 1.75
+	light.light_energy = 1.55
+	light.light_volumetric_fog_energy = 1.05
 	light.light_size = 0.62
 	light.spot_range = 8.5
 	light.spot_angle = 24.0
@@ -230,7 +332,7 @@ func _build_stone_lantern(lantern: Node3D, is_lit: bool) -> void:
 		lantern.add_child(eave)
 
 
-func _add_lantern_ground_glow(lantern: Node3D, radius: float) -> void:
+func _add_lantern_ground_glow(lantern: Node3D, radius: float) -> StandardMaterial3D:
 	var glow := MeshInstance3D.new()
 	glow.name = &"GroundGlow"
 	glow.position = Vector3(0.0, 0.028, 0.0)
@@ -245,12 +347,48 @@ func _add_lantern_ground_glow(lantern: Node3D, radius: float) -> void:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_texture = _make_soft_dot_texture()
 	material.albedo_color = LANTERN_COLOR.lerp(Color(1.0, 0.12, 0.07, 1.0), 0.3)
-	material.albedo_color.a = 0.4
+	material.albedo_color.a = TORCH_GROUND_GLOW_ALPHA
 	material.emission_enabled = true
 	material.emission = Color(1.0, 0.24, 0.09, 1.0)
-	material.emission_energy_multiplier = 0.9
+	material.emission_energy_multiplier = 0.38
 	glow.material_override = material
 	lantern.add_child(glow)
+	return material
+
+
+func _add_flame_sparks(lantern: Node3D, is_lit: bool) -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = &"FlameSparks"
+	particles.position = Vector3(0.0, 1.34, 0.0)
+	particles.amount = TORCH_SPARK_COUNT
+	particles.lifetime = 0.9
+	particles.randomness = 0.72
+	particles.fixed_fps = 20
+	particles.local_coords = true
+	particles.emitting = false
+	particles.visibility_aabb = AABB(Vector3(-0.45, -0.2, -0.45), Vector3(0.9, 1.8, 0.9))
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.08, 0.08)
+	particles.draw_pass_1 = quad
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = Vector3.UP
+	process_material.spread = 26.0
+	process_material.gravity = Vector3(0.0, 0.18, 0.0)
+	process_material.initial_velocity_min = 0.24
+	process_material.initial_velocity_max = 0.62
+	process_material.scale_min = 0.25
+	process_material.scale_max = 0.7
+	process_material.color = Color(1.0, 0.56, 0.22, 0.72 if is_lit else 0.0)
+	particles.process_material = process_material
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	material.vertex_color_use_as_albedo = true
+	material.albedo_texture = _make_soft_dot_texture()
+	particles.material_override = material
+	lantern.add_child(particles)
+	return particles
 
 
 func _add_lantern_companion(lantern: Node3D, index: int) -> void:
@@ -272,6 +410,153 @@ func _add_lantern_companion(lantern: Node3D, index: int) -> void:
 	lantern.add_child(companion)
 
 
+func _build_rune_effects() -> void:
+	var sources: Array[Node] = get_tree().get_nodes_in_group(&"rune_source")
+	for source: Node in sources:
+		if _rune_lights.size() >= MAX_RUNE_LIGHTS:
+			break
+		if not source is Node3D:
+			continue
+		var source_3d := source as Node3D
+		var visual := source_3d.get_node_or_null("Visual") as Sprite3D
+		if visual == null:
+			continue
+		var light := OmniLight3D.new()
+		light.name = &"RuneSpill"
+		light.position = Vector3(0.0, 0.28, 0.0)
+		light.light_color = RUNE_COLOR
+		light.light_energy = 0.28
+		light.omni_range = 2.45
+		light.omni_attenuation = 2.0
+		light.shadow_enabled = false
+		light.light_volumetric_fog_energy = 0.08
+		source_3d.add_child(light)
+		_rune_lights.append(light)
+		_rune_visuals.append(visual)
+		_rune_base_modulates.append(visual.modulate)
+	for source: Node in get_tree().get_nodes_in_group(&"mechanism_motion"):
+		if source is Node3D:
+			var visual := (source as Node3D).get_node_or_null("Visual") as Sprite3D
+			if visual != null:
+				_mechanism_visuals.append(visual)
+
+
+## The boss gate sits at the dark end of the diagonal passage; two cool flank
+## lights and a rune glow pool give the approach a readable target instead of
+## dropping into pure black. The lights join the rune culling budget.
+func _build_boss_gate_guidance() -> void:
+	var level := get_parent()
+	if level == null:
+		return
+	var gate := level.get_node_or_null("GreyboxRoute/GravePassage/BossGate") as Node3D
+	if gate == null:
+		return
+	var guidance := Node3D.new()
+	guidance.name = &"BossGateGuidance"
+	add_child(guidance)
+	var right: Vector3 = gate.basis.x
+	var forward: Vector3 = -gate.basis.z
+	var gate_position: Vector3 = gate.global_position
+	for side: int in [-1, 1]:
+		var light := OmniLight3D.new()
+		light.name = &"GuideLightL" if side < 0 else &"GuideLightR"
+		light.position = gate_position + right * (2.1 * side) + Vector3.UP * 1.5
+		light.light_color = Color(0.52, 0.68, 0.78, 1.0)
+		light.light_energy = 0.55
+		light.omni_range = 6.0
+		light.omni_attenuation = 2.0
+		light.shadow_enabled = false
+		light.light_volumetric_fog_energy = 0.1
+		guidance.add_child(light)
+		_guide_lights.append(light)
+		var flank_glow := _make_rune_glow_quad(
+			guidance, &"GlowFlankL" if side < 0 else &"GlowFlankR",
+			gate_position + forward * 1.6 + right * (1.7 * side), 0.55, 0.14
+		)
+	var front_glow := _make_rune_glow_quad(
+		guidance, &"GlowFront", gate_position + forward * 2.3, 0.95, 0.11
+	)
+
+
+func _make_rune_glow_quad(
+	parent: Node3D, glow_name: StringName, position: Vector3, radius: float, alpha: float
+) -> MeshInstance3D:
+	var glow := MeshInstance3D.new()
+	glow.name = glow_name
+	glow.position = position
+	glow.rotation_degrees.x = -90.0
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var quad := QuadMesh.new()
+	quad.size = Vector2(radius * 2.0, radius * 2.0)
+	glow.mesh = quad
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_texture = _make_soft_dot_texture()
+	material.albedo_color = RUNE_COLOR.lerp(Color.WHITE, 0.3)
+	material.albedo_color.a = alpha
+	material.emission_enabled = true
+	material.emission = RUNE_COLOR
+	material.emission_energy_multiplier = 0.65
+	glow.material_override = material
+	parent.add_child(glow)
+	return glow
+
+
+func _cache_player_material() -> void:
+	var level := get_parent()
+	if level == null:
+		return
+	_player = level.get_node_or_null("Entities/Player") as Node3D
+	if _player == null:
+		return
+	var visual := _player.get_node_or_null("Visual") as AnimatedSprite3D
+	if visual != null:
+		_player_material = visual.material_override as ShaderMaterial
+
+
+func _update_runes_and_mechanisms() -> void:
+	for index: int in _rune_lights.size():
+		var light: OmniLight3D = _rune_lights[index]
+		if not light.visible:
+			continue
+		var pulse: float = 0.5 + 0.5 * sin(_time * 0.72 + float(index) * 1.41)
+		light.light_energy = lerpf(0.26, 0.42, pulse)
+		_rune_visuals[index].modulate = _rune_base_modulates[index].lerp(
+			RUNE_COLOR, lerpf(0.055, 0.1, pulse)
+		)
+	for visual: Sprite3D in _mechanism_visuals:
+		if visual.is_visible_in_tree() and (
+			_camera == null
+			or visual.global_position.distance_squared_to(_camera.global_position)
+				<= EFFECT_DISTANCE * EFFECT_DISTANCE
+		):
+			visual.rotation.z = fmod(_time * 0.075, TAU)
+	for index: int in _guide_lights.size():
+		var light: OmniLight3D = _guide_lights[index]
+		if not light.visible:
+			continue
+		var pulse: float = 0.5 + 0.5 * sin(_time * 0.55 + float(index) * 2.1)
+		light.light_energy = lerpf(0.42, 0.68, pulse)
+
+
+func _update_player_torch_influence() -> void:
+	if _player == null or not is_instance_valid(_player) or _player_material == null:
+		_cache_player_material()
+	if _player == null or _player_material == null:
+		return
+	var influence: float = 0.0
+	for light: OmniLight3D in _lantern_lights:
+		if not light.visible:
+			continue
+		var distance: float = _player.global_position.distance_to(light.global_position)
+		influence = maxf(influence, 1.0 - distance / TORCH_RANGE)
+	_player_material.set_shader_parameter(
+		&"warm_light_strength", lerpf(0.1, 0.38, smoothstep(0.0, 1.0, influence))
+	)
+
+
 func _build_dust() -> void:
 	for entry: Array in DUST_EMITTERS:
 		var center: Vector3 = entry[0]
@@ -282,13 +567,14 @@ func _build_dust() -> void:
 			## 全屏构图下近景尘斑容易叠成浅色团，出口段进一步压低透明度。
 			dust_color.a = 0.024
 		var particles: GPUParticles3D = _make_particles(
-			center, extents, dust_color, 120 if is_deep_exit else 252,
+			center, extents, dust_color, DUST_PARTICLE_COUNT,
 			9.0 if is_deep_exit else 8.0,
 			Vector2(0.035, 0.12) if is_deep_exit else Vector2(0.055, 0.18),
 			Vector2(0.009, 0.032) if is_deep_exit else Vector2(0.012, 0.04)
 		)
 		particles.name = &"Dust"
 		add_child(particles)
+		_ambient_emitters.append(particles)
 
 
 func _build_corruption() -> void:
@@ -296,10 +582,12 @@ func _build_corruption() -> void:
 		var center: Vector3 = entry[0]
 		var extents: Vector3 = entry[1]
 		var particles: GPUParticles3D = _make_particles(
-			center, extents, CORRUPTION_COLOR, 156, 5.2, Vector2(0.045, 0.16), Vector2(0.012, 0.038)
+			center, extents, CORRUPTION_COLOR, CORRUPTION_PARTICLE_COUNT,
+			5.2, Vector2(0.045, 0.16), Vector2(0.012, 0.038)
 		)
 		particles.name = &"CorruptionMotes"
 		add_child(particles)
+		_ambient_emitters.append(particles)
 
 
 func _make_particles(
@@ -318,6 +606,8 @@ func _make_particles(
 	particles.preprocess = lifetime
 	particles.fixed_fps = 30
 	particles.local_coords = true
+	particles.emitting = false
+	particles.visibility_aabb = AABB(-extents, extents * 2.0 + Vector3.UP * 2.0)
 	particles.draw_pass_1 = QuadMesh.new()
 	var quad: QuadMesh = particles.draw_pass_1 as QuadMesh
 	quad.size = Vector2(0.5, 0.5)
@@ -380,7 +670,9 @@ func _box_mesh(size: Vector3, color: Color, emissive: bool = false, emissive_gri
 		emissive_material.set_shader_parameter(&"use_grate_texture", emissive_grid)
 		emissive_material.set_shader_parameter(&"grid_cells", Vector2(4.0, 3.0) if emissive_grid else Vector2.ONE)
 		emissive_material.set_shader_parameter(&"bar_width", 0.18 if emissive_grid else 0.0)
-		emissive_material.set_shader_parameter(&"emission_energy", 5.2 if emissive_grid else 3.2)
+		emissive_material.set_shader_parameter(
+			&"emission_energy", TORCH_CORE_EMISSION if emissive_grid else 2.6
+		)
 		material = emissive_material
 	else:
 		material = _get_stylized_stone_material(color)

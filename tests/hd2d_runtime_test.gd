@@ -55,18 +55,19 @@ func _init() -> void:
 			var visual := player.get_node("Visual") as AnimatedSprite3D
 			var player_material := visual.material_override as ShaderMaterial
 			_expect(
-				player_material.get_shader_parameter(&"rim_strength") >= 0.3
-					and player_material.get_shader_parameter(&"rim_strength") <= 0.4,
+				player_material.get_shader_parameter(&"rim_strength") >= 0.22
+					and player_material.get_shader_parameter(&"rim_strength") <= 0.3,
 				"heroine receives a restrained cyan rim in dark scenes"
 			)
 			_expect(
-				is_equal_approx(float(player_material.get_shader_parameter(&"outline_width")), 3.0),
-				"heroine keeps a three-pixel all-angle silhouette"
+				is_equal_approx(float(player_material.get_shader_parameter(&"outline_width")), 2.0),
+				"heroine keeps a crisp two-pixel all-angle silhouette"
 			)
 			_expect(
-				is_equal_approx(float(player_material.get_shader_parameter(&"warm_light_strength")), 0.3)
+				float(player_material.get_shader_parameter(&"warm_light_strength")) >= 0.08
+					and float(player_material.get_shader_parameter(&"warm_light_strength")) <= 0.4
 					and is_equal_approx(float(player_material.get_shader_parameter(&"cold_shadow_strength")), 0.25),
-				"heroine receives warm key and cold shadow tinting"
+				"heroine reserves warm tint range for nearby torch influence"
 			)
 			player.set("visual", visual)
 			player.call(&"_configure_directional_animations")

@@ -12,8 +12,8 @@ extends Node3D
 @export_range(0.0, 2.0, 0.05) var idle_forward_offset: float = 0.55
 @export_range(0.0, 2.0, 0.05) var movement_look_ahead: float = 1.0
 @export_range(0.5, 12.0, 0.1) var look_ahead_speed: float = 4.0
-@export_range(0.0, 1.0, 0.05) var foreground_rest_transparency: float = 0.18
-@export_range(0.0, 1.0, 0.05) var foreground_blocking_transparency: float = 0.9
+@export_range(0.0, 1.0, 0.05) var foreground_rest_transparency: float = 0.58
+@export_range(0.0, 1.0, 0.05) var foreground_blocking_transparency: float = 0.94
 @export_range(1.0, 12.0, 0.1) var foreground_fade_speed: float = 5.0
 @export_range(100.0, 400.0, 10.0) var foreground_fade_radius: float = 280.0
 @export_range(0.5, 8.0, 0.1) var focus_half_width: float = 3.2
@@ -151,15 +151,19 @@ func _update_foreground_fade(delta: float) -> void:
 			_camera.global_position.distance_to(occluder.global_position) < player_distance
 		)
 		var projected_bounds: Rect2 = _projected_screen_bounds(occluder)
-		var overlaps_player: bool = (
-			projected_bounds.grow(48.0).has_point(player_screen)
-			or occluder_screen.distance_to(player_screen) < foreground_fade_radius
+		var screen_distance: float = occluder_screen.distance_to(player_screen)
+		var proximity: float = 1.0 - smoothstep(
+			foreground_fade_radius * 0.55, foreground_fade_radius, screen_distance
 		)
-		var target_transparency: float = (
-			foreground_blocking_transparency
-			if lies_in_front and overlaps_player
-			else foreground_rest_transparency
-		)
+		if projected_bounds.grow(48.0).has_point(player_screen):
+			proximity = 1.0
+		var target_transparency: float = foreground_rest_transparency
+		if lies_in_front:
+			target_transparency = lerpf(
+				foreground_rest_transparency,
+				foreground_blocking_transparency,
+				proximity * proximity
+			)
 		occluder.transparency = lerpf(
 			occluder.transparency, target_transparency, fade_weight
 		)
