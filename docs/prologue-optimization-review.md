@@ -58,7 +58,7 @@
 
 - Godot 已完成新 PNG、角色图集与 Shader 的导入，运行时资源均有 `.import`。
 - `outputs/.gdignore` 阻止 AI 生成中间文件进入 Godot 导入扫描。
-- `.blend` 当前可以成功导入；后续仍建议将纯制作源文件迁移到项目外的 DCC 源素材仓库。
+- `.blend` 制作源已迁入带 `.gdignore` 的 `dcc/` 目录；Godot 不再扫描它，因此未安装 Blender 的环境也能完整导入 PNG。
 
 ### 11. 导出安全的贴图加载
 

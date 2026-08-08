@@ -18,6 +18,7 @@ from mathutils import Vector
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / "assets/characters/wuyang/3d/source/base_cc0/Superhero_Female_FullBody.gltf"
 OUT_DIR = ROOT / "assets/characters/juse/3d/studies"
+DCC_DIR = OUT_DIR / "dcc"
 
 
 def clear_scene() -> None:
@@ -166,6 +167,7 @@ def render_view(scene: bpy.types.Scene, name: str, location: tuple[float, float,
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    DCC_DIR.mkdir(parents=True, exist_ok=True)
     clear_scene()
     bpy.ops.import_scene.gltf(filepath=str(BASE))
     rig = bpy.data.objects["Armature"]
@@ -192,7 +194,7 @@ def main() -> None:
     render_view(scene, "front", (0.0, -4.0, 1.08))
     render_view(scene, "side", (4.0, 0.0, 1.08))
     render_view(scene, "back", (0.0, 4.0, 1.08))
-    source = OUT_DIR / "juse_v7_proportion_study.blend"
+    source = DCC_DIR / "juse_v7_proportion_study.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(source))
     print(f"Juse v7 proportion study: {source}")
 
